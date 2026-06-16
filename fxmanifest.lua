@@ -15,7 +15,8 @@ client_scripts {
     'client/loot.lua',
     'client/rob.lua',
     'client/crafting.lua',
-    'client/weapons.lua'
+    'client/weapons.lua',
+    'client/hotbar.lua'
 }
 
 server_scripts {
