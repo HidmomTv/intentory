@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from 'react'
 import { X, Settings, User } from 'lucide-react'
 import { useTheme } from './ThemeContext'
-import Equipment from './components/HumanBody' // Renamed internally
+import Equipment from './components/HumanBody'
 import Hotbar from './components/Hotbar'
+import Grid from './components/Grid'
+import DragOverlay from './components/DragOverlay'
 
 const themeStyles = {
   basic: {
@@ -10,32 +12,24 @@ const themeStyles = {
     panel: "bg-black/40 backdrop-blur-3xl border border-white/5 shadow-[0_8px_32px_rgba(0,0,0,0.8)] rounded-xl relative overflow-hidden",
     textPrimary: "text-gray-100",
     textSecondary: "text-gray-500",
-    gridContainer: "bg-zinc-950/50 border border-white/5 rounded-lg shadow-inner",
-    slotBg: "bg-white/5 border border-white/5 hover:bg-white/10 rounded-sm transition-colors"
   },
   pipboy: {
     appBg: "bg-[#050a05] font-pipboy scanlines",
     panel: "bg-[#0a140a]/80 border border-[var(--primary-color)] shadow-[0_0_10px_var(--primary-glow)_inset] rounded-sm relative",
     textPrimary: "text-[var(--primary-color)] drop-shadow-[0_0_2px_var(--primary-glow)]",
     textSecondary: "text-[var(--primary-color)] opacity-60",
-    gridContainer: "bg-[#020502] border border-[var(--primary-color)]/30 rounded-sm",
-    slotBg: "bg-transparent border border-[var(--primary-color)]/20 hover:bg-[var(--primary-color)]/10 transition-colors"
   },
   military: {
     appBg: "bg-[#141614] font-military bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-[#1e221e] to-[#0a0b0a]",
     panel: "bg-[#1c201c] border-t-2 border-l-2 border-[#2d332d] border-b-2 border-r-2 border-[#0a0b0a] shadow-2xl rounded-none relative",
     textPrimary: "text-[#d1dcd1]",
     textSecondary: "text-[#7a8c7a]",
-    gridContainer: "bg-[#141614] border-t-2 border-l-2 border-[#0a0b0a] border-b-2 border-r-2 border-[#2d332d] shadow-inner",
-    slotBg: "bg-[#1c201c] border border-[#2d332d]/30 hover:bg-[#252a25] transition-colors"
   },
   urban: {
     appBg: "bg-zinc-950 font-urban bg-[conic-gradient(at_top_right,_var(--tw-gradient-stops))] from-zinc-900 via-black to-zinc-950",
     panel: "bg-zinc-900 border-2 border-zinc-800 shadow-[6px_6px_0_var(--primary-color)] rounded-none relative",
     textPrimary: "text-white drop-shadow-[2px_2px_0_var(--primary-color)]",
     textSecondary: "text-gray-400",
-    gridContainer: "bg-black border border-zinc-800",
-    slotBg: "bg-zinc-900 border border-zinc-800 hover:bg-[var(--primary-color)]/20 transition-colors"
   }
 }
 
@@ -59,8 +53,10 @@ function App() {
   return (
     <>
       <Hotbar />
+      <DragOverlay />
+      
       {isVisible && (
-        <div className={`flex h-screen w-screen items-center justify-center p-8 transition-colors duration-500 ${t.appBg}`}>
+        <div className={`flex h-screen w-screen items-center justify-center p-8 transition-colors duration-500 select-none ${t.appBg}`}>
           
           {themeName === 'basic' && (
             <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[800px] bg-[var(--primary-color)] rounded-full blur-[200px] opacity-[0.07] pointer-events-none"></div>
@@ -116,20 +112,7 @@ function App() {
             
             {/* Left Side: External / Loot / Stash */}
             <div className={`flex-1 p-6 flex flex-col ${t.panel}`}>
-              <div className="flex justify-between items-center mb-6">
-                <div>
-                  <h2 className={`text-xl font-black tracking-widest uppercase ${t.textPrimary}`}>SUELO / LOOT</h2>
-                </div>
-                <div className="bg-black/50 px-4 py-1.5 rounded border border-white/5 shadow-inner">
-                  <span className={`text-xs font-bold tracking-wider ${t.textSecondary}`}>0.0 <span className="opacity-50">/</span> 50.0 KG</span>
-                </div>
-              </div>
-              
-              <div className={`flex-1 grid grid-cols-10 grid-rows-10 gap-1 p-3 ${t.gridContainer}`}>
-                {Array.from({ length: 100 }).map((_, i) => (
-                  <div key={`ext-${i}`} className={`w-full h-full ${t.slotBg}`}></div>
-                ))}
-              </div>
+              <Grid id="loot" title="Suelo / Loot" maxWeight="50.0" />
             </div>
 
             {/* Center: Character Info & Equipment Slots */}
@@ -166,32 +149,7 @@ function App() {
                 <X size={18} />
               </button>
 
-              <div className="flex justify-between items-center mb-6">
-                <div>
-                  <h2 className={`text-xl font-black tracking-widest uppercase ${t.textPrimary}`}>INVENTARIO</h2>
-                </div>
-                <div className="bg-black/50 px-4 py-1.5 mr-14 rounded border border-white/5 shadow-inner">
-                  <span className={`text-xs font-bold tracking-wider ${t.textSecondary}`}>12.5 <span className="opacity-50">/</span> 30.0 KG</span>
-                </div>
-              </div>
-
-              <div className={`flex-1 grid grid-cols-10 grid-rows-10 gap-1 p-3 relative ${t.gridContainer}`}>
-                {Array.from({ length: 100 }).map((_, i) => (
-                  <div key={`inv-${i}`} className={`w-full h-full relative ${t.slotBg}`}></div>
-                ))}
-                
-                {/* Premium Mock Item (2x2) */}
-                <div 
-                    className="absolute top-3 left-3 w-[calc(20%-0.5rem)] h-[calc(20%-0.5rem)] border rounded-sm flex flex-col items-center justify-center cursor-pointer transition-all z-10 overflow-hidden group shadow-lg"
-                    style={{ backgroundColor: 'var(--primary-color)', borderColor: 'rgba(255,255,255,0.4)' }}
-                >
-                  <div className="absolute inset-0 bg-black/20 group-hover:bg-transparent transition-colors"></div>
-                  <span className={`text-sm font-black tracking-widest drop-shadow-lg z-10 ${themeName === 'urban' ? 'text-black' : 'text-white'}`}>RIFLE</span>
-                  <div className="mt-1 bg-black/80 px-2 py-0.5 rounded-[2px] z-10">
-                    <span className="text-[9px] text-white font-mono">100%</span>
-                  </div>
-                </div>
-              </div>
+              <Grid id="personal" title="Inventario" maxWeight="30.0" />
 
             </div>
           </div>
