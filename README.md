@@ -97,5 +97,19 @@ qb-inventory/
 
 ---
 
+## 🚧 Próximas Implementaciones / Funcionalidades Pendientes (To-Do)
+
+Para continuar expandiendo este motor hasta el infinito mañana, estas son las dos grandes joyas arquitectónicas marcadas como siguientes objetivos de desarrollo:
+
+* **🔨 Crafting por Entornos (Fabricación Contextual):**
+  * Habilitar mesas de trabajo e interfaces de fabricación dinámicas que requieran proximidad física a entidades específicas del mapa (p. ej., bancos mecánicos en talleres, mesas clandestinas de fundición, cocinas químicas).
+  * Recetas con requerimientos espaciales y duraciones de crafteo progresivas.
+
+* **🔫 Modificación Dinámica de Armas (Accesorios en Tiempo Real):**
+  * Interfaz interactiva de inspección armada que permita acoplar y desacoplar accesorios (silenciadores, cargadores extendidos, miras ópticas, linternas tácticas y camuflajes).
+  * Mecánica de arrastrar y soltar (*drag & drop*) del accesorio directamente sobre la celda ocupada por el arma para equiparlo instantáneamente con actualización de estadísticas MySQL.
+
+---
+
 ## ❤️ Créditos y Colaboración
 Desarrollado y optimizado con amor para **HidmomTv** y su hermano. Pair programming asistido por Antigravity DeepMind. ¡A romperla mañana! 🚀
