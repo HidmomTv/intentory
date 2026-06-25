@@ -3,10 +3,14 @@ game 'gta5'
 
 author 'Antigravity'
 description 'Universal Tetris Inventory'
+provide 'qb-inventory'
+
+export 'HasItem'
 
 shared_scripts {
     '@oxmysql/lib/MySQL.lua',
-    'shared/config.lua'
+    'shared/config.lua',
+    'shared/dimensions.lua'
 }
 
 client_scripts {
@@ -21,7 +25,8 @@ client_scripts {
 
 server_scripts {
     'server/main.lua',
-    'server/items.lua'
+    'server/items.lua',
+    'server/commands.lua'
 }
 
 ui_page 'web/dist/index.html'
@@ -31,7 +36,9 @@ files {
     'web/dist/assets/*.js',
     'web/dist/assets/*.css',
     'web/dist/assets/*.png',
-    'web/dist/assets/*.svg'
+    'web/dist/assets/*.svg',
+    'web/dist/images/*.png',
+    'web/dist/images/*.jpg'
 }
 
 lua54 'yes'

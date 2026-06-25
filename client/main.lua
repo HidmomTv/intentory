@@ -1,21 +1,288 @@
-local inventoryOpen = false
+-- client/main.lua
+local QBCore = exports['qb-core']:GetCoreObject()
+local isOpen = false
+local dropProps = {}
 
-RegisterCommand('inventory', function()
-    ToggleInventory()
-end)
+local function GetTrunkOffset(veh)
+    local min, max = GetModelDimensions(GetEntityModel(veh))
+    return GetOffsetFromEntityInWorldCoords(veh, 0.0, min.y - 0.5, 0.0)
+end
 
-RegisterKeyMapping('inventory', 'Open Inventory', 'keyboard', 'TAB')
+local function OpenPlayerInventory()
+    if isOpen then
+        ToggleInventory(false)
+        return
+    end
 
-function ToggleInventory()
-    inventoryOpen = not inventoryOpen
-    SetNuiFocus(inventoryOpen, inventoryOpen)
-    SendNUIMessage({
-        action = inventoryOpen and 'openInventory' or 'closeInventory'
-    })
+    local ped = PlayerPedId()
+    local pos = GetEntityCoords(ped)
+
+    -- 1. ¿Está sentado en un vehículo? (Abrir Guantera)
+    if IsPedInAnyVehicle(ped, false) then
+        local veh = GetVehiclePedIsIn(ped, false)
+        local plate = QBCore.Functions.GetPlate(veh)
+        if plate then
+            local gbId = "glovebox-" .. plate
+            QBCore.Functions.TriggerCallback('qb-inventory:server:GetGloveboxItems', function(gbItems)
+                ToggleInventory(true, true, { title = "Guantera - " .. plate, maxWeight = 10.0, id = gbId, items = gbItems, invType = "glovebox" })
+            end, gbId)
+            return
+        end
+    end
+
+    -- 2. ¿Está detrás del maletero de un vehículo exterior?
+    local veh = GetClosestVehicle(pos.x, pos.y, pos.z, 6.0, 0, 71)
+    if veh and veh ~= 0 then
+        local lockStatus = GetVehicleDoorLockStatus(veh)
+        if lockStatus < 2 then
+            local trunkPos = GetTrunkOffset(veh)
+            if #(pos - trunkPos) < 2.5 then
+                local plate = QBCore.Functions.GetPlate(veh)
+                local class = GetVehicleClass(veh)
+                local maxW = 60.0
+                if class == 0 or class == 1 or class == 3 or class == 4 or class == 5 or class == 6 or class == 7 then maxW = 60.0
+                elseif class == 2 or class == 8 then maxW = 80.0
+                elseif class == 9 or class == 10 or class == 11 or class == 12 then maxW = 120.0
+                end
+
+                local trunkId = "trunk-" .. plate
+                QBCore.Functions.TriggerCallback('qb-inventory:server:GetTrunkItems', function(trunkItems)
+                    ToggleInventory(true, true, { title = "Maletero - " .. plate, maxWeight = maxW, id = trunkId, items = trunkItems, invType = "trunk" })
+                end, trunkId)
+                return
+            end
+        end
+    end
+
+    -- 3. ¿Está cerca de una bolsa en el suelo (drop)?
+    local closestDrop = nil
+    local minDist = 2.0
+    for dId, prop in pairs(dropProps) do
+        if DoesEntityExist(prop) then
+            local dPos = GetEntityCoords(prop)
+            local d = #(pos - dPos)
+            if d < minDist then
+                minDist = d
+                closestDrop = dId
+            end
+        end
+    end
+
+    if closestDrop then
+        TriggerServerEvent('qb-inventory:server:openDrop', closestDrop)
+        return
+    end
+
+    -- 4. Apertura personal normal
+    ToggleInventory(true)
+end
+
+RegisterCommand('openinventory', function() OpenPlayerInventory() end, false)
+RegisterKeyMapping('openinventory', 'Abrir Inventario', 'keyboard', 'TAB')
+
+function ToggleInventory(state, isSecondary, secData)
+    if state == isOpen and not isSecondary then return end
+    isOpen = state
+    SetNuiFocus(state, state)
+
+    if state then
+        QBCore.Functions.TriggerCallback('qb-inventory:server:getPlayerInventory', function(items)
+            SendNUIMessage({ action = 'setItems', payload = items })
+
+            if isSecondary and secData then
+                SendNUIMessage({
+                    action = 'openContainer',
+                    title = secData.title,
+                    maxWeight = secData.maxWeight,
+                    containerId = secData.id,
+                    items = secData.items,
+                    invType = secData.invType
+                })
+            else
+                SendNUIMessage({ action = 'openInventory' })
+            end
+        end)
+    else
+        SendNUIMessage({ action = 'closeInventory' })
+    end
 end
 
 RegisterNUICallback('close', function(data, cb)
-    inventoryOpen = false
-    SetNuiFocus(false, false)
-    cb('ok')
+    ToggleInventory(false)
+    cb({})
+end)
+
+CreateThread(function()
+    while true do
+        Wait(0)
+        if isOpen then
+            if IsControlJustPressed(0, 200) or IsControlJustPressed(0, 289) then
+                ToggleInventory(false)
+            end
+        else
+            Wait(500)
+        end
+    end
+end)
+
+RegisterNUICallback('toggleClothing', function(data, cb)
+    local slot = data.slot
+    local commands = {
+        ['head'] = 'hat', ['mask'] = 'mask', ['glasses'] = 'glasses',
+        ['earrings'] = 'earrings', ['torso'] = 'shirt', ['armor'] = 'vest',
+        ['bag'] = 'bag', ['bracelets'] = 'gloves', ['watch'] = 'watch',
+        ['legs'] = 'pants', ['feet'] = 'shoes'
+    }
+    if commands[slot] then ExecuteCommand(commands[slot]) end
+    cb({})
+end)
+
+RegisterNUICallback('UseItem', function(data, cb)
+    TriggerServerEvent('qb-inventory:server:UseItem', data.item)
+    cb({})
+end)
+
+RegisterNUICallback('DropItem', function(data, cb)
+    TriggerServerEvent('qb-inventory:server:DropItem', data.item, data.amount)
+    cb({})
+end)
+
+RegisterNUICallback('SetItemSlot', function(data, cb)
+    TriggerServerEvent('qb-inventory:server:SetItemSlot', data)
+    cb({})
+end)
+
+RegisterNUICallback('TakeFromSecondary', function(data, cb)
+    TriggerServerEvent('qb-inventory:server:TakeFromSecondary', data)
+    cb({})
+end)
+
+RegisterNUICallback('PutInSecondary', function(data, cb)
+    TriggerServerEvent('qb-inventory:server:PutInSecondary', data)
+    cb({})
+end)
+
+RegisterNUICallback('SetQuickbarSlot', function(data, cb)
+    TriggerServerEvent('qb-inventory:server:SetQuickbarSlot', data)
+    cb({})
+end)
+
+RegisterNUICallback('GiveItem', function(data, cb)
+    local targetId = tonumber(data.targetId)
+    if targetId and targetId > 0 then
+        TriggerServerEvent('qb-inventory:server:GiveItem', data.item, data.amount, targetId)
+    else
+        QBCore.Functions.Notify("ID de jugador destino no válido", "error")
+    end
+    cb({})
+end)
+
+RegisterNUICallback('SplitItem', function(data, cb)
+    TriggerServerEvent('qb-inventory:server:SplitItem', data.item, data.amount)
+    cb({})
+end)
+
+RegisterNUICallback('MergeStack', function(data, cb)
+    TriggerServerEvent('qb-inventory:server:MergeStack', data.source, data.target)
+    cb({})
+end)
+
+-- EVENTOS DE APERTURA SECUNDARIA (STASH, TRUNK, GLOVEBOX, SHOP)
+RegisterNetEvent('qb-inventory:client:openSecondary', function(title, maxWeight, containerId, type, itemsData)
+    if type == "stash" then
+        QBCore.Functions.TriggerCallback('qb-inventory:server:GetStashItems', function(stashItems)
+            ToggleInventory(true, true, { title = title, maxWeight = maxWeight, id = containerId, items = stashItems, invType = "stash" })
+        end, containerId)
+    elseif type == "trunk" then
+        QBCore.Functions.TriggerCallback('qb-inventory:server:GetTrunkItems', function(trunkItems)
+            ToggleInventory(true, true, { title = title, maxWeight = maxWeight, id = containerId, items = trunkItems, invType = "trunk" })
+        end, containerId)
+    elseif type == "glovebox" then
+        QBCore.Functions.TriggerCallback('qb-inventory:server:GetGloveboxItems', function(gbItems)
+            ToggleInventory(true, true, { title = title, maxWeight = maxWeight, id = containerId, items = gbItems, invType = "glovebox" })
+        end, containerId)
+    elseif type == "shop" then
+        ToggleInventory(true, true, { title = title, maxWeight = 1000.0, id = containerId, items = itemsData or {}, invType = "shop" })
+    else
+        ToggleInventory(true, true, { title = title, maxWeight = maxWeight, id = containerId, items = itemsData or {}, invType = type })
+    end
+end)
+
+-- EVENTOS Y EXPORTS DE DROPS
+RegisterNetEvent('qb-inventory:client:createLocalDrop', function(dropId, coords, dropData)
+    local model = `bkr_prop_duffel_bag_01a`
+    RequestModel(model)
+    while not HasModelLoaded(model) do Wait(10) end
+    local bag = CreateObject(model, coords.x, coords.y, coords.z - 1.0, false, false, false)
+    PlaceObjectOnGroundProperly(bag)
+    FreezeEntityPosition(bag, true)
+    dropProps[dropId] = bag
+
+    exports['qb-target']:AddTargetEntity(bag, {
+        options = {{
+            icon = 'fas fa-backpack',
+            label = 'Abrir Bolsa',
+            action = function() TriggerServerEvent('qb-inventory:server:openDrop', dropId) end
+        }},
+        distance = 2.0
+    })
+end)
+
+RegisterNetEvent('qb-inventory:client:removeDrop', function(dropId)
+    if dropProps[dropId] then
+        exports['qb-target']:RemoveTargetEntity(dropProps[dropId], 'Abrir Bolsa')
+        DeleteEntity(dropProps[dropId])
+        dropProps[dropId] = nil
+    end
+    -- Cerrar la bolsa si el jugador la tiene abierta
+    SendNUIMessage({ action = 'closeSecondaryDrop', dropId = dropId })
+end)
+
+RegisterNetEvent('qb-inventory:client:openLoot', function(dropId, items)
+    ToggleInventory(true, true, { title = "Bolsa en el suelo", maxWeight = 50.0, id = dropId, items = items, invType = "drop" })
+end)
+
+-- HUD ITEMBOX (Notificación visual al ganar/perder ítems)
+RegisterNetEvent('inventory:client:ItemBox', function(itemData, type)
+    SendNUIMessage({ action = 'itemBox', item = itemData, type = type })
+end)
+RegisterNetEvent('qb-inventory:client:ItemBox', function(itemData, type) TriggerEvent('inventory:client:ItemBox', itemData, type) end)
+
+RegisterNetEvent('qb-inventory:client:refreshUI', function(items)
+    SendNUIMessage({ action = 'setItems', payload = items })
+end)
+
+exports('HasItem', function(items, amount)
+    local PlayerData = QBCore.Functions.GetPlayerData()
+    if not PlayerData or not PlayerData.items then return false end
+    local count = amount or 1
+
+    if type(items) == "table" then
+        for _, item in pairs(items) do
+            for _, pItem in pairs(PlayerData.items) do
+                if pItem and pItem.name == item and pItem.amount >= count then return true end
+            end
+        end
+        return false
+    else
+        for _, pItem in pairs(PlayerData.items) do
+            if pItem and pItem.name == items and pItem.amount >= count then return true end
+        end
+        return false
+    end
+end)
+
+RegisterNetEvent('qb-inventory:client:openAdminMenu', function(players, items)
+    SetNuiFocus(true, true)
+    SendNUIMessage({ action = 'openAdminPanel', players = players, items = items })
+end)
+
+RegisterNUICallback('AdminGiveItem', function(data, cb)
+    TriggerServerEvent('qb-inventory:server:AdminGiveItem', data.targetId, data.itemName, data.amount)
+    cb({})
+end)
+
+RegisterNUICallback('BuyItem', function(data, cb)
+    TriggerServerEvent('qb-inventory:server:BuyItem', data.shop, data.item.name, data.amount, data.item.slot)
+    cb({})
 end)

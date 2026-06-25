@@ -31,7 +31,7 @@ RegisterCommand('robar', function()
         -- Comprobamos si el objetivo está muerto o con las manos arriba
         if IsEntityDead(targetPed) or IsEntityPlayingAnim(targetPed, "missminuteman_1ig_2", "handsup_base", 3) then
             print("^2[Robo] Registrando jugador: " .. GetPlayerServerId(closestPlayer) .. "^7")
-            TriggerServerEvent('universal_inventory:server:robPlayer', GetPlayerServerId(closestPlayer))
+            TriggerServerEvent('qb-inventory:server:robPlayer', GetPlayerServerId(closestPlayer))
             
             -- TODO: Reproducir animación de cachear en nuestro personaje
         else

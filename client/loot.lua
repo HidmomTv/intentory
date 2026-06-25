@@ -59,7 +59,7 @@ Citizen.CreateThread(function()
                     local propCoords = GetEntityCoords(entityHit)
                     
                     -- Avisamos al servidor para que genere el loot según el tipo (basura, papelera, etc.)
-                    TriggerServerEvent('universal_inventory:server:searchProp', lootType, propCoords)
+                    TriggerServerEvent('qb-inventory:server:searchProp', lootType, propCoords)
                     
                     -- Prevenimos spam de la tecla
                     Citizen.Wait(2000) 

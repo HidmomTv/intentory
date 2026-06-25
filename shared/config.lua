@@ -1,6 +1,6 @@
 -- Universal Config
 Config = {}
-Config.Framework = 'standalone' -- 'qbcore', 'qbox', 'standalone'
+Config.Framework = 'qbcore' -- 'qbcore', 'qbox', 'standalone'
 
 -- Pesos Base (Modificables por el dueño del servidor)
 Config.MaxWeight = {

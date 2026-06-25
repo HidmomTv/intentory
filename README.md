@@ -1,107 +1,101 @@
-# 🎒 Universal Inventory (AAA Edition)
+# 💎 QBCore Inventory V3 - Edición AAA Espacial Tetris & Vehicular
 
-![Version](https://img.shields.io/badge/version-1.0.0-blue.svg)
-![FiveM](https://img.shields.io/badge/FiveM-Ready-orange.svg)
-![Framework](https://img.shields.io/badge/Framework-Standalone%20|%20QBCore%20|%20Qbox-success.svg)
+![QBCore V3 Banner](https://img.shields.io/badge/QBCore-AAA%20Inventory%20V3-00d1b2?style=for-the-badge&logo=fivem&logoColor=white)
+![React](https://img.shields.io/badge/React%2018%20+%20Vite-20232A?style=for-the-badge&logo=react&logoColor=61DAFB)
+![TailwindCSS](https://img.shields.io/badge/Tailwind_CSS-38B2AC?style=for-the-badge&logo=tailwind-css&logoColor=white)
+![Lua](https://img.shields.io/badge/Lua-2C2D72?style=for-the-badge&logo=lua&logoColor=white)
 
-Un inventario de nivel comercial y calidad AAA para FiveM. Diseñado desde cero para ofrecer una experiencia inmersiva estilo *Escape From Tarkov* o *Cyberpunk 2077*, con un sistema de cuadrícula espacial (Tetris), personalización extrema y soporte multiplataforma.
-
----
-
-## ✨ Características Principales
-
-*   🟩 **Motor Drag & Drop (Tetris Grid):** Sistema de inventario espacial real. Los objetos ocupan diferentes dimensiones (ej. Rifle 4x2, Agua 1x1). Sistema de colisiones en tiempo real y rotación de objetos con la tecla `R`.
-*   🎭 **Motor de Temas V3:** 4 estéticas premium seleccionables en caliente por el jugador (Minimalista AAA, Retro Terminal, Táctico Hardcore, Urbano Neón) y personalización total de color de acento.
-*   👕 **Panel de Equipamiento Anatómico:** Interfaz inmersiva con iconos de equipo RPG reales para armaduras, ropa, máscaras, cadenas, gafas y brazaletes.
-*   ⚡ **Menú Rápido (Hotbar Z):** Rueda/Barra de acceso rápido integrada y animada que se activa manteniendo la tecla `Z`, desenfocando el fondo para máxima inmersión táctica.
-*   🛠️ **Crafting por Entornos:** Sistema avanzado que detecta objetos cercanos (fogatas, bancos de trabajo) para habilitar recetas específicas, montado sobre un sistema NUI de blueprints.
-*   🔫 **Modificación Dinámica de Armas:** Añade silenciadores, linternas y mirillas visualmente al modelo de tu arma directamente desde la interfaz.
-*   🌐 **Compatibilidad Universal:** Funciona sin problemas en servidores Standalone, QBCore y Qbox gracias a su capa de abstracción compartida.
+Un reemplazo revolucionario y moderno de nivel **AAA** para `qb-inventory` de QBCore Framework. Introduce una mecánica de organización espacial **Tetris (10x10)**, física vehicular automática y un motor visual dinámico con temas seleccionables en tiempo real.
 
 ---
 
-## 📋 Dependencias Requeridas
+## 🌟 Características Principales
 
-Asegúrate de tener instalados los siguientes recursos antes de iniciar el inventario:
+### 📦 1. Sistema Espacial Tetris 10x10
+* **Geometría de Ítems:** Los objetos ya no ocupan una simple ranura lineal. Cada ítem tiene dimensiones reales de alto y ancho (p. ej., Rifles 5x2, Pistolas 3x2, Balas 1x1).
+* **Rotación en Tiempo Real:** Rotación fluida de objetos durante el arrastre (`R` o botón derecho del ratón) para encajar perfectamente en la rejilla de equipaje.
+* **Celdas Ampliadas:** Rejilla optimizada con casillas de alta definición que permiten apreciar los dibujos de armas y objetos en resolución completa.
+* **Blindaje Visual CEF:** Badges de apilamiento (`x50`) optimizados con `w-max h-max inline-flex` para evitar deformaciones en motores Chromium de GTA V.
 
-1.  [`oxmysql`](https://github.com/overextended/oxmysql) (Manejo de Base de Datos ultrarrápido).
-2.  QBCore / Qbox (Solo si no estás usando la versión Standalone).
+### 🚗 2. Física Vehicular Estándar de QBCore (`client/main.lua`)
+* **Apertura Contextual Única:** Al pulsar la tecla de inventario (**`TAB`** o **`I`**), el sistema determina automáticamente tu entorno físico:
+  1. **🗃️ Guanteras (`Glovebox`):** Si estás sentado en cualquier asiento dentro de un coche, abre automáticamente la guantera vinculada a la matrícula MySQL del vehículo (Capacidad: 10 KG).
+  2. **🚙 Maleteros Exteriores (`Trunk`):** Si estás a pie en la calle detrás de un vehículo (distancia < 2.5 metros del paragolpes trasero) y el coche está desbloqueado (`lockStatus < 2`), calcula e hidrata automáticamente su maletero.
+  3. **⚖️ Pesos Dinámicos por Clase:** Turismos/Deportivos (60 KG), SUV/Todoterrenos (80 KG), Furgones/Camiones (120 KG).
+  4. **🛍️ Drops Prioritarios:** Si estás cerca de una bolsa tirada en el suelo, la abre automáticamente al presionar inventario.
+
+### 🎨 3. Motor de Temas V3 en Tiempo Real
+Accesible mediante el botón de engranaje (⚙️) en la interfaz:
+* **Minimalista Traslúcido (AAA):** Diseño moderno con desenfoque de fondo (`backdrop-blur-md`), bordes sutiles y tipografía limpia.
+* **Terminal PipBoy:** Estilo retro-futurista verde monocromo inspirado en Fallout.
+* **Táctico Militar Tarkov:** Fondos oscuros mate, bordes verde oliva y rejillas de alto contraste.
+* **Urbano Neón:** Sombras profundas y brillos cian adaptados al roleplay nocturno.
+* **Color de Acento Personalizable:** Selector de paleta HEX dinámico que guarda tus preferencias visuales en la memoria local del cliente.
+
+### 👑 4. Panel de Administración (`/inventoryadmin`)
+* **Menú Visual Interactivo:** Despacha cualquier ítem del servidor a jugadores conectados de forma gráfica.
+* **Búsqueda instantánea:** Filtro en tiempo real por nombre o etiqueta del objeto con previsualización 3D.
+* **Seguridad de Red:** Autenticación de servidor infalible (`HasPermission('admin')` o `'god'`).
+* **Notificaciones Bilaterales:** Avisos sonoros y visuales en pantalla confirmando la transacción transaccional tanto al admin como al receptor.
 
 ---
 
-## 🚀 Guía de Instalación
+## 🏗️ Arquitectura Técnica y Estructura
 
-Sigue estos pasos rigurosamente para instalar y compilar el inventario en tu servidor de pruebas o producción:
-
-### 1. Descarga y Ubicación
-1.  Clona o descarga este repositorio.
-2.  Añade la carpeta `universal_inventory` a la carpeta `[resources]` de tu servidor FiveM.
-
-### 2. Configuración de la Base de Datos
-Importa el archivo SQL proporcionado (si existe) o asegúrate de que tu base de datos tiene la tabla `players` estándar de tu framework. El inventario creará dinámicamente el JSON dentro de las columnas existentes.
-
-### 3. Compilación de la Interfaz Web (React)
-Este inventario utiliza **React 18** y **Tailwind V4** para su interfaz. Debes compilar el código fuente antes de iniciar el servidor.
-
-1.  Abre tu consola de comandos (CMD, PowerShell o Terminal).
-2.  Navega a la carpeta web del inventario:
-    ```bash
-    cd [ruta_del_servidor]/resources/universal_inventory/web
-    ```
-3.  Instala las dependencias de Node.js:
-    ```bash
-    npm install
-    ```
-4.  Construye la versión de producción optimizada:
-    ```bash
-    npm run build
-    ```
-    *(Esto generará una carpeta `dist` que FiveM utilizará para mostrar la UI).*
-
-### 4. Configuración del Servidor (Lua)
-1.  Abre el archivo `shared/config.lua`.
-2.  Ajusta el framework que utiliza tu servidor:
-    ```lua
-    Config.Framework = 'qbcore' -- Opciones: 'standalone', 'qbcore', 'qbox'
-    ```
-3.  Ajusta los pesos máximos según la economía de tu servidor:
-    ```lua
-    Config.MaxWeight = {
-        player = 30.0,
-        backpack = 15.0,
-        stash = 100.0,
-        trunk = 50.0,
-        glovebox = 10.0,
-        drop = 50.0
-    }
-    ```
-
-### 5. Iniciar el Recurso
-Añade la siguiente línea a tu archivo `server.cfg`:
-
-```cfg
-ensure oxmysql
-ensure universal_inventory
+```text
+qb-inventory/
+├── client/
+│   └── main.lua              # Núcleo vehicular, oyentes NUI, callbacks y comando /inventoryadmin
+├── server/
+│   └── main.lua              # Sincronización Tetris MySQL, transacciones de tienda, stashes y AdminGiveItem
+├── web/
+│   ├── src/
+│   │   ├── App.jsx           # Contenedor raíz, oyente global de cierre (ESC, TAB, F2, I) y motor de temas
+│   │   ├── components/
+│   │   │   ├── Grid.jsx      # Rejilla Tetris espacial 10x10, física de colisión y arrastre
+│   │   │   ├── Equipment.jsx # Slots anatómicos de personaje (cabeza, chaleco, mochila, manos)
+│   │   │   ├── AdminPanel.jsx# Interfaz de despacho administrativo con resolución NUI/HTTP fallback
+│   │   │   └── QuickAccessBar.jsx # Barra rápida 1-6 con propagación de eventos aislada
+│   │   └── index.css         # Estilos Tailwind y variables CSS dinámicas
+│   └── dist/                 # Empaquetado de producción compilado por Vite
+└── README.md                 # Manual técnico del proyecto
 ```
 
-*(Si usas QBCore o Qbox, asegúrate de que `universal_inventory` se inicia **después** del core de tu framework).*
+---
+
+## 🛠️ Desarrollo e Instalación en otro PC
+
+### Requisitos Previos
+* Node.js v18+ y npm.
+* Servidor FiveM con QBCore Framework actualizado.
+
+### Instrucciones para continuar el trabajo mañana:
+
+1. **Clonar o descargar** este repositorio en la carpeta `resources/[qb]/` del nuevo servidor.
+2. **Desarrollo Web local:**
+   ```bash
+   cd qb-inventory/web
+   npm install
+   npm run dev
+   ```
+   *(Abre `http://localhost:5173` en tu navegador para diseñar la interfaz con datos simulados).*
+
+3. **Compilar para Producción (FiveM):**
+   Cada vez que modifiques código de React en `web/src/`, debes empaquetarlo:
+   ```bash
+   cd qb-inventory/web
+   npm run build
+   ```
+   *Esto generará el código optimizado en `web/dist/` que lee FiveM.*
+
+4. **Reiniciar en el servidor:**
+   En la consola de FiveM (o txAdmin):
+   ```bash
+   ensure qb-inventory
+   ```
+   *(Si actualizaste ficheros JS de `dist/`, **cierra y abre tu juego FiveM** para vaciar la caché de CEF).*
 
 ---
 
-## 🎮 Controles por Defecto
-
-*   **F2 / Tabulador:** Abrir/Cerrar el inventario (configurable en cliente).
-*   **Z (Mantener):** Abrir Menú Rápido (Hotbar).
-*   **Click Izquierdo (Mantener):** Arrastrar un objeto por el grid (Tetris).
-*   **R (Mientras se arrastra):** Rotar objeto geométricamente.
-
----
-
-## 🔧 Resolución de Problemas
-
-*   **La interfaz no aparece o se ve blanca:** Asegúrate de haber ejecutado `npm run build` en la carpeta `web`.
-*   **El inventario no guarda los objetos:** Comprueba la consola del servidor. Asegúrate de que `oxmysql` está conectado correctamente y de que el Framework coincide en tu `config.lua`.
-
----
-
-**Desarrollado con ❤️ para llevar los servidores de FiveM al siguiente nivel.**
+## ❤️ Créditos y Colaboración
+Desarrollado y optimizado con amor para **HidmomTv** y su hermano. Pair programming asistido por Antigravity DeepMind. ¡A romperla mañana! 🚀

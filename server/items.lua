@@ -1,40 +1,39 @@
-local CustomItems = {}
+-- server/items.lua
+local QBCore = exports['qb-core']:GetCoreObject()
+local FormattedItems = {}
 
-MySQL.ready(function()
-    MySQL.query('SELECT * FROM universal_items', {}, function(results)
-        if results then
-            for _, item in ipairs(results) do
-                CustomItems[item.name] = item
-            end
-            print('^2[Universal Inventory] Loaded ' .. #results .. ' custom items from database.^7')
-        end
-    end)
+CreateThread(function()
+    Wait(1000) -- Esperar carga de QBCore.Shared.Items
+    local count = 0
+    for name, item in pairs(QBCore.Shared.Items) do
+        local w, h = GetItemDimensions(name)
+        FormattedItems[name] = {
+            name = item.name,
+            label = item.label,
+            weight = item.weight or 0,
+            type = item.type or 'item',
+            image = item.image or (item.name .. '.png'),
+            unique = item.unique or false,
+            useable = item.useable or false,
+            description = item.description or '',
+            width = w,
+            height = h
+        }
+        count = count + 1
+    end
+    print('^2[qb-inventory] Formateados ' .. count .. ' ítems de QBCore con dimensiones espaciales Tetris.^7')
 end)
 
--- Sincronizar items con clientes
-RegisterNetEvent('universal_inventory:server:requestItems', function()
+RegisterNetEvent('qb-inventory:server:requestItems', function()
     local src = source
-    TriggerClientEvent('universal_inventory:client:syncItems', src, CustomItems)
+    TriggerClientEvent('qb-inventory:client:syncItems', src, FormattedItems)
 end)
 
--- Evento de Administrador para crear items dinámicamente In-Game
-RegisterNetEvent('universal_inventory:server:createItem', function(itemData)
+RegisterNetEvent('inventory:server:requestItems', function()
     local src = source
-    -- TODO: Verificar permisos de administrador aquí
-    
-    local query = 'INSERT INTO universal_items (name, label, weight, type, image, is_unique, useable, description, tetris_width, tetris_height) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
-    local params = {
-        itemData.name, itemData.label, itemData.weight, itemData.type, itemData.image, 
-        itemData.is_unique and 1 or 0, itemData.useable and 1 or 0, itemData.description, 
-        itemData.width, itemData.height
-    }
+    TriggerClientEvent('qb-inventory:client:syncItems', src, FormattedItems)
+end)
 
-    MySQL.insert(query, params, function(id)
-        if id then
-            CustomItems[itemData.name] = itemData
-            -- Sincronizar con todos los jugadores
-            TriggerClientEvent('universal_inventory:client:syncItems', -1, CustomItems)
-            print('^2[Admin] Nuevo Item creado dinámicamente: ' .. itemData.name .. '^7')
-        end
-    end)
+exports('GetFormattedItems', function()
+    return FormattedItems
 end)

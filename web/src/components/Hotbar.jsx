@@ -1,8 +1,10 @@
 import React, { useEffect, useState } from 'react';
 import { useTheme } from '../ThemeContext';
+import { useInventory } from '../context/InventoryContext';
 
 export default function Hotbar() {
   const { themeName } = useTheme();
+  const { items } = useInventory(); // Real items from QBCore
   const [isVisible, setIsVisible] = useState(false);
 
   useEffect(() => {
@@ -48,35 +50,45 @@ export default function Hotbar() {
           <span className="text-xs tracking-widest text-gray-300 font-bold">ACCESOS RÁPIDOS</span>
         </div>
 
-        {Array.from({ length: 5 }).map((_, i) => (
-          <div 
-            key={`quick-${i}`} 
-            className={`w-20 h-20 rounded-xl border flex flex-col items-center justify-center relative hover:-translate-y-2 transition-all cursor-pointer group overflow-hidden ${getSlotClass()}`}
-            style={{ 
-              borderColor: themeName === 'basic' ? 'var(--primary-color)' : undefined
-            }}
-          >
-            <div className="absolute top-1 left-1 bg-black/80 w-5 h-5 rounded flex items-center justify-center">
-              <span className="text-[10px] font-bold opacity-80" style={{ color: themeName !== 'military' ? 'var(--primary-color)' : '#a3b3a3' }}>{i+1}</span>
+        {Array.from({ length: 6 }).map((_, i) => {
+          const slotNum = i + 1;
+          const slotItem = items.find(item => item.hotbarSlot === slotNum);
+
+          return (
+            <div 
+              key={`quick-${i}`} 
+              className={`w-20 h-20 rounded-xl border flex flex-col items-center justify-center relative hover:-translate-y-2 transition-all cursor-pointer group overflow-hidden ${getSlotClass()}`}
+              style={{ 
+                borderColor: themeName === 'basic' && !slotItem ? 'rgba(255,255,255,0.2)' : (themeName === 'basic' ? 'var(--primary-color)' : undefined)
+              }}
+            >
+              <div className="absolute top-1 left-1 bg-black/80 w-5 h-5 rounded flex items-center justify-center z-20">
+                <span className="text-[10px] font-bold opacity-80" style={{ color: themeName !== 'military' ? 'var(--primary-color)' : '#a3b3a3' }}>{slotNum}</span>
+              </div>
+              
+              {slotItem && (
+                <>
+                  {slotItem.image && (
+                    <img 
+                      src={slotItem.image} 
+                      alt={slotItem.label} 
+                      className="absolute inset-0 m-auto w-[65%] h-[65%] object-contain opacity-80 drop-shadow-lg z-10 group-hover:scale-110 transition-transform"
+                      onError={(e) => e.target.style.display = 'none'}
+                    />
+                  )}
+                  <span className="absolute bottom-1 w-full text-center text-[9px] font-bold z-20 drop-shadow-md truncate px-1">
+                    {slotItem.label}
+                  </span>
+                  {slotItem.count > 1 && (
+                    <span className="absolute top-1 right-1 text-[10px] bg-black/80 px-1 rounded font-bold text-gray-300 z-20">
+                      x{slotItem.count}
+                    </span>
+                  )}
+                </>
+              )}
             </div>
-            
-            {/* Example Hotbar Item Logic */}
-            {i === 0 && (
-              <>
-                <span className="text-xs font-bold mt-2 z-10 drop-shadow-md">PISTOLA</span>
-                <div className="absolute bottom-1 w-[80%] h-1 bg-black/50 rounded-full overflow-hidden">
-                  <div className="h-full bg-green-500 w-full"></div>
-                </div>
-              </>
-            )}
-            {i === 1 && (
-              <>
-                <span className="text-xs font-bold mt-2 z-10 drop-shadow-md">VENDAJE</span>
-                <span className="absolute bottom-1 right-2 text-[10px] text-gray-400">x5</span>
-              </>
-            )}
-          </div>
-        ))}
+          );
+        })}
       </div>
     </div>
   );
