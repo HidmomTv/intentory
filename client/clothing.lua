@@ -39,3 +39,30 @@ Citizen.CreateThread(function()
         end
     end
 end)
+
+RegisterNUICallback('toggleClothing', function(data, cb)
+    local type = data.type or data.slot
+    if not type then cb({}) return end
+
+    local capMap = {
+        ['mask'] = 'Mask', ['neck'] = 'Neck', ['top'] = 'Top', ['shirt'] = 'Shirt',
+        ['gloves'] = 'Gloves', ['pants'] = 'Pants', ['shoes'] = 'Shoes', ['vest'] = 'Vest',
+        ['bag'] = 'Bag', ['hat'] = 'Hat', ['glasses'] = 'Glasses', ['visor'] = 'Visor',
+        ['watch'] = 'Watch', ['bracelet'] = 'Bracelet'
+    }
+
+    local capName = capMap[type] or type
+    local lowName = string.lower(type)
+
+    TriggerEvent('qb-radialmenu:ToggleClothing', capName)
+    TriggerEvent('qb-radialmenu:ToggleProps', capName)
+    TriggerEvent('qb-radialmenu:client:ToggleClothing', capName)
+    TriggerEvent('qb-radialmenu:client:ToggleProps', capName)
+    TriggerEvent('illenium-appearance:client:toggleClothing', capName)
+    TriggerEvent('illenium-appearance:client:toggleProps', capName)
+    TriggerEvent('qb-clothing:client:toggleClothing', capName)
+
+    ExecuteCommand(lowName)
+
+    cb({})
+end)

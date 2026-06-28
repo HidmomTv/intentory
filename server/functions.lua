@@ -1,4 +1,7 @@
 -- Local Functions
+local function GetPlayerMaxWeight()
+    return type(Config.MaxWeight) == 'table' and (Config.MaxWeight.player or 120000) or (tonumber(Config.MaxWeight) or 120000)
+end
 
 local function InitializeInventory(inventoryId, data)
     Inventories[inventoryId] = {
@@ -243,9 +246,18 @@ exports('GetFirstSlotByItem', GetFirstSlotByItem)
 --- @return table|nil - item data if found, or nil if not found.
 function GetItemBySlot(source, slot)
     local Player = QBCore.Functions.GetPlayer(source)
-    if not Player then return end
+    if not Player or not slot then return nil end
+    slot = tonumber(slot)
     local items = Player.PlayerData.items
-    return items[tonumber(slot)]
+    if items[slot] and tonumber(items[slot].slot) == slot then
+        return items[slot]
+    end
+    for k, v in pairs(items) do
+        if v and tonumber(v.slot) == slot then
+            return v
+        end
+    end
+    return nil
 end
 
 exports('GetItemBySlot', GetItemBySlot)
@@ -369,7 +381,7 @@ function CanAddItem(identifier, item, amount)
     local inventory, items
     if Player then
         inventory = {
-            maxweight = Config.MaxWeight,
+            maxweight = GetPlayerMaxWeight(),
             slots = Config.MaxSlots
         }
         items = Player.PlayerData.items
@@ -421,7 +433,7 @@ function GetFreeWeight(source)
     if not Player then return 0 end
 
     local totalWeight = GetTotalWeight(Player.PlayerData.items)
-    local freeWeight = Config.MaxWeight - totalWeight
+    local freeWeight = GetPlayerMaxWeight() - totalWeight
     return freeWeight
 end
 
@@ -522,7 +534,7 @@ function OpenInventoryById(source, targetId)
     local formattedInventory = {
         name = 'otherplayer-' .. targetId,
         label = GetPlayerName(targetId),
-        maxweight = Config.MaxWeight,
+        maxweight = GetPlayerMaxWeight(),
         slots = Config.MaxSlots,
         inventory = targetItems
     }
@@ -593,14 +605,7 @@ function OpenShop(source, name)
             if distance > 5.0 then return end
         end
     end
-    local formattedInventory = {
-        name = 'shop-' .. RegisteredShops[name].name,
-        label = RegisteredShops[name].label,
-        maxweight = 5000000,
-        slots = #RegisteredShops[name].items,
-        inventory = RegisteredShops[name].items
-    }
-    TriggerClientEvent('qb-inventory:client:openInventory', source, Player.PlayerData.items, formattedInventory)
+    TriggerClientEvent('qb-inventory:client:openSecondary', source, RegisteredShops[name].label or "Tienda", 1000.0, name, "shop", RegisteredShops[name].items)
 end
 
 exports('OpenShop', OpenShop)
@@ -698,7 +703,7 @@ function AddItem(identifier, item, amount, slot, info, reason)
 
     if player then
         inventory = player.PlayerData.items
-        inventoryWeight = Config.MaxWeight
+        inventoryWeight = GetPlayerMaxWeight()
         inventorySlots = Config.MaxSlots
     elseif Inventories[identifier] then
         inventory = Inventories[identifier].items

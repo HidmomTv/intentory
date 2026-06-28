@@ -5,12 +5,17 @@ RegisterNUICallback('modifyWeapon', function(data, cb)
     local componentHash = GetHashKey(data.componentName)
     
     if HasPedGotWeapon(ped, weaponHash, false) then
-        GiveWeaponComponentToPed(ped, weaponHash, componentHash)
-        print("^2[Armas] Accesorio instalado.^7")
-        -- TODO: Play an animation of tinkering with the weapon
+        if data.install then
+            GiveWeaponComponentToPed(ped, weaponHash, componentHash)
+            QBCore.Functions.Notify("Accesorio acoplado al arma", "success")
+        else
+            RemoveWeaponComponentFromPed(ped, weaponHash, componentHash)
+            QBCore.Functions.Notify("Accesorio desacoplado del arma", "info")
+        end
+        TriggerServerEvent('qb-inventory:server:modifyWeaponAttachment', data.slot, data.componentName, data.install)
         cb({ success = true })
     else
-        print("^1[Armas] No tienes el arma equipada para modificarla.^7")
+        QBCore.Functions.Notify("Debes tener el arma en mano para modificarla", "error")
         cb({ success = false, error = "No tienes el arma equipada" })
     end
 end)

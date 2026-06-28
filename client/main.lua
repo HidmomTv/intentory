@@ -86,8 +86,10 @@ function ToggleInventory(state, isSecondary, secData)
     SetNuiFocus(state, state)
 
     if state then
-        QBCore.Functions.TriggerCallback('qb-inventory:server:getPlayerInventory', function(items)
-            SendNUIMessage({ action = 'setItems', payload = items })
+        QBCore.Functions.TriggerCallback('qb-inventory:server:getPlayerInventory', function(items, isAdmin)
+            local rawWeight = type(Config.MaxWeight) == 'table' and (Config.MaxWeight.player or 120000) or Config.MaxWeight
+            local playerMaxWeight = (tonumber(rawWeight) or 120000) > 1000 and ((tonumber(rawWeight) or 120000) / 1000.0) or (tonumber(rawWeight) or 120.0)
+            SendNUIMessage({ action = 'setItems', payload = items, maxWeight = playerMaxWeight, isAdmin = isAdmin })
 
             if isSecondary and secData then
                 SendNUIMessage({
@@ -99,7 +101,7 @@ function ToggleInventory(state, isSecondary, secData)
                     invType = secData.invType
                 })
             else
-                SendNUIMessage({ action = 'openInventory' })
+                SendNUIMessage({ action = 'openInventory', maxWeight = playerMaxWeight })
             end
         end)
     else
@@ -125,20 +127,9 @@ CreateThread(function()
     end
 end)
 
-RegisterNUICallback('toggleClothing', function(data, cb)
-    local slot = data.slot
-    local commands = {
-        ['head'] = 'hat', ['mask'] = 'mask', ['glasses'] = 'glasses',
-        ['earrings'] = 'earrings', ['torso'] = 'shirt', ['armor'] = 'vest',
-        ['bag'] = 'bag', ['bracelets'] = 'gloves', ['watch'] = 'watch',
-        ['legs'] = 'pants', ['feet'] = 'shoes'
-    }
-    if commands[slot] then ExecuteCommand(commands[slot]) end
-    cb({})
-end)
-
 RegisterNUICallback('UseItem', function(data, cb)
-    TriggerServerEvent('qb-inventory:server:UseItem', data.item)
+    local slotOrItem = data.slot or (data.item and (data.item.slot or data.item.qbslot)) or data.item
+    TriggerServerEvent('qb-inventory:server:UseItem', slotOrItem)
     cb({})
 end)
 
@@ -150,6 +141,11 @@ end)
 RegisterNUICallback('SetItemSlot', function(data, cb)
     TriggerServerEvent('qb-inventory:server:SetItemSlot', data)
     cb({})
+end)
+
+RegisterNUICallback('SetInventoryData', function(data, cb)
+    TriggerServerEvent('qb-inventory:server:SetInventoryData', data.fromInventory, data.toInventory, data.fromSlot, data.toSlot, data.fromAmount, data.toAmount)
+    cb('ok')
 end)
 
 RegisterNUICallback('TakeFromSecondary', function(data, cb)
@@ -242,6 +238,17 @@ RegisterNetEvent('qb-inventory:client:openLoot', function(dropId, items)
     ToggleInventory(true, true, { title = "Bolsa en el suelo", maxWeight = 50.0, id = dropId, items = items, invType = "drop" })
 end)
 
+RegisterNetEvent('qb-inventory:client:updateSecondaryContainer', function(containerId, items, title, maxWeight, invType)
+    SendNUIMessage({
+        action = 'openContainer',
+        containerId = containerId,
+        items = items,
+        title = title or "Contenedor",
+        maxWeight = maxWeight or 100.0,
+        invType = invType or "container"
+    })
+end)
+
 -- HUD ITEMBOX (Notificación visual al ganar/perder ítems)
 RegisterNetEvent('inventory:client:ItemBox', function(itemData, type)
     SendNUIMessage({ action = 'itemBox', item = itemData, type = type })
@@ -249,7 +256,7 @@ end)
 RegisterNetEvent('qb-inventory:client:ItemBox', function(itemData, type) TriggerEvent('inventory:client:ItemBox', itemData, type) end)
 
 RegisterNetEvent('qb-inventory:client:refreshUI', function(items)
-    SendNUIMessage({ action = 'setItems', payload = items })
+    SendNUIMessage({ action = 'updateInventory', inventory = items })
 end)
 
 exports('HasItem', function(items, amount)
@@ -272,6 +279,29 @@ exports('HasItem', function(items, amount)
     end
 end)
 
+exports('GetSlotsByItem', function(itemName)
+    local PlayerData = QBCore.Functions.GetPlayerData()
+    if not PlayerData or not PlayerData.items then return {} end
+    local slotsFound = {}
+    for slot, item in pairs(PlayerData.items) do
+        if item and item.name:lower() == itemName:lower() then
+            table.insert(slotsFound, tonumber(slot))
+        end
+    end
+    return slotsFound
+end)
+
+exports('GetFirstSlotByItem', function(itemName)
+    local PlayerData = QBCore.Functions.GetPlayerData()
+    if not PlayerData or not PlayerData.items then return nil end
+    for slot, item in pairs(PlayerData.items) do
+        if item and item.name:lower() == itemName:lower() then
+            return tonumber(slot)
+        end
+    end
+    return nil
+end)
+
 RegisterNetEvent('qb-inventory:client:openAdminMenu', function(players, items)
     SetNuiFocus(true, true)
     SendNUIMessage({ action = 'openAdminPanel', players = players, items = items })
@@ -284,5 +314,21 @@ end)
 
 RegisterNUICallback('BuyItem', function(data, cb)
     TriggerServerEvent('qb-inventory:server:BuyItem', data.shop, data.item.name, data.amount, data.item.slot)
+    cb({})
+end)
+
+RegisterNUICallback('AdminClearInventory', function(data, cb)
+    TriggerServerEvent('qb-inventory:server:AdminClearInventory', data.targetId or 0)
+    cb({})
+end)
+
+RegisterNUICallback('GetAdminData', function(data, cb)
+    QBCore.Functions.TriggerCallback('qb-inventory:server:GetAdminData', function(players, items)
+        cb({ players = players, items = items })
+    end)
+end)
+
+RegisterNUICallback('MoveInSecondary', function(data, cb)
+    TriggerServerEvent('qb-inventory:server:MoveInSecondary', data)
     cb({})
 end)

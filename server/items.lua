@@ -6,7 +6,6 @@ CreateThread(function()
     Wait(1000) -- Esperar carga de QBCore.Shared.Items
     local count = 0
     for name, item in pairs(QBCore.Shared.Items) do
-        local w, h = GetItemDimensions(name)
         FormattedItems[name] = {
             name = item.name,
             label = item.label,
@@ -15,13 +14,11 @@ CreateThread(function()
             image = item.image or (item.name .. '.png'),
             unique = item.unique or false,
             useable = item.useable or false,
-            description = item.description or '',
-            width = w,
-            height = h
+            description = item.description or ''
         }
         count = count + 1
     end
-    print('^2[qb-inventory] Formateados ' .. count .. ' ítems de QBCore con dimensiones espaciales Tetris.^7')
+    print('^2[qb-inventory] Formateados ' .. count .. ' ítems de QBCore correctamente.^7')
 end)
 
 RegisterNetEvent('qb-inventory:server:requestItems', function()

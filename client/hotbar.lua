@@ -7,9 +7,9 @@ local function UseQuickbarSlot(slotNum)
     local PlayerData = QBCore.Functions.GetPlayerData()
     if not PlayerData or not PlayerData.items then return end
 
-    for _, item in pairs(PlayerData.items) do
-        if item and item.info and tonumber(item.info.hotbarSlot) == slotNum then
-            TriggerServerEvent('qb-inventory:server:UseItem', item)
+    for k, item in pairs(PlayerData.items) do
+        if item and (tonumber(item.slot) == slotNum or tonumber(k) == slotNum or (item.info and tonumber(item.info.hotbarSlot) == slotNum)) then
+            TriggerServerEvent('qb-inventory:server:UseItem', slotNum)
             break
         end
     end

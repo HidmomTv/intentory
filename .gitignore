@@ -1,5 +1,27 @@
-node_modules/
-.vite/
+# Logs
 *.log
+
+# OS files
 .DS_Store
 Thumbs.db
+desktop.ini
+
+# Node / Web build (no usamos React ahora, pero por si acaso)
+node_modules/
+.vite/
+dist/
+web/node_modules/
+web/dist/
+
+# Editor
+.vscode/
+.idea/
+*.suo
+*.user
+
+# FiveM cache (nunca subir)
+*.cache
+
+# Variables de entorno sensibles
+.env
+.env.local

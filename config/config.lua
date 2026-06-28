@@ -1,8 +1,18 @@
 Config = {
+    Framework = 'qbcore', -- 'qbcore', 'qbox', 'standalone'
     UseTarget = GetConvar('UseTarget', 'false') == 'true',
 
     MaxWeight = 120000,
     MaxSlots = 40,
+
+    ContainerWeights = {
+        player = 120.0,
+        backpack = 20.0,
+        stash = 1000.0,
+        trunk = 150.0,
+        glovebox = 15.0,
+        drop = 50.0
+    },
 
     StashSize = {
         maxweight = 2000000,

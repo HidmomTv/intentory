@@ -1,115 +1,201 @@
-# 💎 QBCore Inventory V3 - Edición AAA Espacial Tetris & Vehicular
+# 🎒 qb-inventory — by HidmomTv
 
-![QBCore V3 Banner](https://img.shields.io/badge/QBCore-AAA%20Inventory%20V3-00d1b2?style=for-the-badge&logo=fivem&logoColor=white)
-![React](https://img.shields.io/badge/React%2018%20+%20Vite-20232A?style=for-the-badge&logo=react&logoColor=61DAFB)
-![TailwindCSS](https://img.shields.io/badge/Tailwind_CSS-38B2AC?style=for-the-badge&logo=tailwind-css&logoColor=white)
-![Lua](https://img.shields.io/badge/Lua-2C2D72?style=for-the-badge&logo=lua&logoColor=white)
+<p align="center">
+  <img src="https://img.shields.io/badge/Author-HidmomTv-blue?style=for-the-badge&logo=github&logoColor=white" />
+  <img src="https://img.shields.io/badge/Framework-QBCore-00d1b2?style=for-the-badge&logo=fivem&logoColor=white" />
+  <img src="https://img.shields.io/badge/License-GPL--3.0-green?style=for-the-badge" />
+  <img src="https://img.shields.io/badge/Contributions-Welcome-brightgreen?style=for-the-badge" />
+</p>
 
-Un reemplazo revolucionario y moderno de nivel **AAA** para `qb-inventory` de QBCore Framework. Introduce una mecánica de organización espacial **Tetris (10x10)**, física vehicular automática y un motor visual dinámico con temas seleccionables en tiempo real.
+Un reemplazo completo y moderno del inventario estándar de QBCore Framework, con interfaz visual custom (HTML/CSS/JS), sistema de contenedores vehiculares, tiendas, stashes, menú de admin y mucho más.
 
----
-
-## 🌟 Características Principales
-
-### 📦 1. Sistema Espacial Tetris 10x10
-* **Geometría de Ítems:** Los objetos ya no ocupan una simple ranura lineal. Cada ítem tiene dimensiones reales de alto y ancho (p. ej., Rifles 5x2, Pistolas 3x2, Balas 1x1).
-* **Rotación en Tiempo Real:** Rotación fluida de objetos durante el arrastre (`R` o botón derecho del ratón) para encajar perfectamente en la rejilla de equipaje.
-* **Celdas Ampliadas:** Rejilla optimizada con casillas de alta definición que permiten apreciar los dibujos de armas y objetos en resolución completa.
-* **Blindaje Visual CEF:** Badges de apilamiento (`x50`) optimizados con `w-max h-max inline-flex` para evitar deformaciones en motores Chromium de GTA V.
-
-### 🚗 2. Física Vehicular Estándar de QBCore (`client/main.lua`)
-* **Apertura Contextual Única:** Al pulsar la tecla de inventario (**`TAB`** o **`I`**), el sistema determina automáticamente tu entorno físico:
-  1. **🗃️ Guanteras (`Glovebox`):** Si estás sentado en cualquier asiento dentro de un coche, abre automáticamente la guantera vinculada a la matrícula MySQL del vehículo (Capacidad: 10 KG).
-  2. **🚙 Maleteros Exteriores (`Trunk`):** Si estás a pie en la calle detrás de un vehículo (distancia < 2.5 metros del paragolpes trasero) y el coche está desbloqueado (`lockStatus < 2`), calcula e hidrata automáticamente su maletero.
-  3. **⚖️ Pesos Dinámicos por Clase:** Turismos/Deportivos (60 KG), SUV/Todoterrenos (80 KG), Furgones/Camiones (120 KG).
-  4. **🛍️ Drops Prioritarios:** Si estás cerca de una bolsa tirada en el suelo, la abre automáticamente al presionar inventario.
-
-### 🎨 3. Motor de Temas V3 en Tiempo Real
-Accesible mediante el botón de engranaje (⚙️) en la interfaz:
-* **Minimalista Traslúcido (AAA):** Diseño moderno con desenfoque de fondo (`backdrop-blur-md`), bordes sutiles y tipografía limpia.
-* **Terminal PipBoy:** Estilo retro-futurista verde monocromo inspirado en Fallout.
-* **Táctico Militar Tarkov:** Fondos oscuros mate, bordes verde oliva y rejillas de alto contraste.
-* **Urbano Neón:** Sombras profundas y brillos cian adaptados al roleplay nocturno.
-* **Color de Acento Personalizable:** Selector de paleta HEX dinámico que guarda tus preferencias visuales en la memoria local del cliente.
-
-### 👑 4. Panel de Administración (`/inventoryadmin`)
-* **Menú Visual Interactivo:** Despacha cualquier ítem del servidor a jugadores conectados de forma gráfica.
-* **Búsqueda instantánea:** Filtro en tiempo real por nombre o etiqueta del objeto con previsualización 3D.
-* **Seguridad de Red:** Autenticación de servidor infalible (`HasPermission('admin')` o `'god'`).
-* **Notificaciones Bilaterales:** Avisos sonoros y visuales en pantalla confirmando la transacción transaccional tanto al admin como al receptor.
+> **Creado y mantenido por [HidmomTv](https://github.com/HidmomTv).**  
+> Las contribuciones externas son bienvenidas — lee la sección [Contribuir](#-contribuir).
 
 ---
 
-## 🏗️ Arquitectura Técnica y Estructura
+## ✨ Características
 
-```text
-qb-inventory/
-├── client/
-│   └── main.lua              # Núcleo vehicular, oyentes NUI, callbacks y comando /inventoryadmin
-├── server/
-│   └── main.lua              # Sincronización Tetris MySQL, transacciones de tienda, stashes y AdminGiveItem
-├── web/
-│   ├── src/
-│   │   ├── App.jsx           # Contenedor raíz, oyente global de cierre (ESC, TAB, F2, I) y motor de temas
-│   │   ├── components/
-│   │   │   ├── Grid.jsx      # Rejilla Tetris espacial 10x10, física de colisión y arrastre
-│   │   │   ├── Equipment.jsx # Slots anatómicos de personaje (cabeza, chaleco, mochila, manos)
-│   │   │   ├── AdminPanel.jsx# Interfaz de despacho administrativo con resolución NUI/HTTP fallback
-│   │   │   └── QuickAccessBar.jsx # Barra rápida 1-6 con propagación de eventos aislada
-│   │   └── index.css         # Estilos Tailwind y variables CSS dinámicas
-│   └── dist/                 # Empaquetado de producción compilado por Vite
-└── README.md                 # Manual técnico del proyecto
+- **Inventario visual moderno** — interfaz HTML/CSS/JS completamente personalizable con temas de color
+- **Drag & drop** — mueve ítems entre slots arrastrando con el ratón
+- **Inventarios secundarios** — maleteros, guanteras y stashes con persistencia en base de datos
+- **Tiendas** — soporte completo para compra de ítems vía NUI
+- **Menú de admin** — panel visual para dar ítems a jugadores (`/inventoryadmin`, `/giveitem`)
+- **Sistema de ropa** — panel lateral para equipar/quitar ropa al personaje
+- **Crafting** — recetas básicas de fabricación en el cliente
+- **Hotbar** — barra de acceso rápido (slots 1–5) con atajos de teclado
+- **Sistema de armas** — inspección y gestión de armas dentro del inventario
+- **Drops al suelo** — al morir o tirar ítems, aparecen como bolsas recogibles en el mundo
+- **Sincronización en tiempo real** — el inventario se actualiza al instante tras cada operación
+
+---
+
+## 📋 Requisitos
+
+| Dependencia | Versión mínima |
+|-------------|----------------|
+| [QBCore Framework](https://github.com/qbcore-framework/qb-core) | Latest |
+| [oxmysql](https://github.com/overextended/oxmysql) | Latest |
+| FiveM Server | Artifact 6683+ |
+
+---
+
+## 🛠️ Instalación
+
+### 1. Descarga el recurso
+```bash
+cd resources/[qb]/
+git clone https://github.com/HidmomTv/intentory.git qb-inventory
+```
+
+### 2. Importa la base de datos
+Ejecuta el archivo SQL en tu base de datos MySQL:
+```bash
+mysql -u root -p tu_base_de_datos < qb-inventory.sql
+```
+O usa el archivo `install.sql` si es una instalación nueva.
+
+### 3. Activa el recurso
+En tu `server.cfg`:
+```
+ensure qb-inventory
+```
+
+### 4. Reinicia el servidor o usa txAdmin
+```
+refresh
+start qb-inventory
 ```
 
 ---
 
-## 🛠️ Desarrollo e Instalación en otro PC
+## ⚙️ Configuración
 
-### Requisitos Previos
-* Node.js v18+ y npm.
-* Servidor FiveM con QBCore Framework actualizado.
-
-### Instrucciones para continuar el trabajo mañana:
-
-1. **Clonar o descargar** este repositorio en la carpeta `resources/[qb]/` del nuevo servidor.
-2. **Desarrollo Web local:**
-   ```bash
-   cd qb-inventory/web
-   npm install
-   npm run dev
-   ```
-   *(Abre `http://localhost:5173` en tu navegador para diseñar la interfaz con datos simulados).*
-
-3. **Compilar para Producción (FiveM):**
-   Cada vez que modifiques código de React en `web/src/`, debes empaquetarlo:
-   ```bash
-   cd qb-inventory/web
-   npm run build
-   ```
-   *Esto generará el código optimizado en `web/dist/` que lee FiveM.*
-
-4. **Reiniciar en el servidor:**
-   En la consola de FiveM (o txAdmin):
-   ```bash
-   ensure qb-inventory
-   ```
-   *(Si actualizaste ficheros JS de `dist/`, **cierra y abre tu juego FiveM** para vaciar la caché de CEF).*
+Edita `config/config.lua` para ajustar:
+- `Config.MaxWeight` — peso máximo del inventario del jugador
+- `Config.MaxSlots` — número de slots de la mochila
+- `Config.StashSize` — tamaño de los stashes
+- `Config.TrunkWeights` — pesos de maleteros según clase de vehículo
 
 ---
 
-## 🚧 Próximas Implementaciones / Funcionalidades Pendientes (To-Do)
+## 🔑 Permisos de Administrador
 
-Para continuar expandiendo este motor hasta el infinito mañana, estas son las dos grandes joyas arquitectónicas marcadas como siguientes objetivos de desarrollo:
+Los comandos y el panel de admin requieren uno de estos grupos de permiso en QBCore/txAdmin:
+- `admin`
+- `god`
+- `command`
+- `mod`
+- Ace `command`
 
-* **🔨 Crafting por Entornos (Fabricación Contextual):**
-  * Habilitar mesas de trabajo e interfaces de fabricación dinámicas que requieran proximidad física a entidades específicas del mapa (p. ej., bancos mecánicos en talleres, mesas clandestinas de fundición, cocinas químicas).
-  * Recetas con requerimientos espaciales y duraciones de crafteo progresivas.
+### Comandos disponibles
 
-* **🔫 Modificación Dinámica de Armas (Accesorios en Tiempo Real):**
-  * Interfaz interactiva de inspección armada que permita acoplar y desacoplar accesorios (silenciadores, cargadores extendidos, miras ópticas, linternas tácticas y camuflajes).
-  * Mecánica de arrastrar y soltar (*drag & drop*) del accesorio directamente sobre la celda ocupada por el arma para equiparlo instantáneamente con actualización de estadísticas MySQL.
+| Comando | Descripción |
+|---------|-------------|
+| `/giveitem [id] [item] [cantidad]` | Da un ítem a un jugador |
+| `/clearinv [id]` | Limpia el inventario de un jugador |
+| `/inventoryadmin` | Abre el panel visual de administración |
 
 ---
 
-## ❤️ Créditos y Colaboración
-Desarrollado y optimizado con amor para **HidmomTv** y su hermano. Pair programming asistido por Antigravity DeepMind. ¡A romperla mañana! 🚀
+## 🚗 Integración vehicular
+
+Para abrir el maletero/guantera desde otro recurso:
+```lua
+-- Maletero
+exports['qb-inventory']:OpenTrunk(source, plate)
+
+-- Guantera
+exports['qb-inventory']:OpenGlovebox(source, plate)
+
+-- Stash
+exports['qb-inventory']:OpenStash(source, stashId)
+```
+
+---
+
+## 🛒 Integración de tiendas
+
+Registra una tienda desde tu script:
+```lua
+exports['qb-inventory']:CreateShop({
+    name = "mi_tienda",
+    label = "Tienda General",
+    items = {
+        { name = "water", price = 50, amount = 99 },
+        { name = "bread", price = 30, amount = 99 },
+    }
+})
+
+-- Abrirla para un jugador
+exports['qb-inventory']:OpenShop(source, "mi_tienda")
+```
+
+---
+
+## 📁 Estructura del proyecto
+
+```
+qb-inventory/
+├── client/
+│   ├── main.lua          # Lógica principal cliente (NUI, eventos, teclado)
+│   ├── clothing.lua      # Gestión del menú de ropa
+│   ├── loot.lua          # Sistema de drops/loot
+│   ├── rob.lua           # Robos entre jugadores
+│   ├── crafting.lua      # Crafting client-side
+│   ├── weapons.lua       # Gestión de armas
+│   └── hotbar.lua        # Barra de acceso rápido
+├── server/
+│   ├── main.lua          # Lógica principal servidor (contenedores, tiendas, sync)
+│   ├── functions.lua     # Funciones auxiliares y callbacks
+│   ├── items.lua         # Carga de ítems de QBCore
+│   └── commands.lua      # Comandos de administración
+├── html/
+│   ├── index.html        # Estructura HTML de la interfaz NUI
+│   ├── style.css         # Estilos visuales con temas de color
+│   ├── app.js            # Lógica JS del inventario (drag&drop, NUI callbacks)
+│   └── images/           # Imágenes de ítems
+├── config/
+│   └── config.lua        # Configuración del recurso
+├── locales/              # Traducciones (es, en, ...)
+├── install.sql           # SQL inicial
+├── fxmanifest.lua        # Manifiesto FiveM
+└── README.md
+```
+
+---
+
+## 🤝 Contribuir
+
+¡Las contribuciones son bienvenidas! Sigue estos pasos:
+
+1. **Fork** este repositorio
+2. Crea una rama nueva: `git checkout -b feature/mi-mejora`
+3. Haz tus cambios y commitea: `git commit -m "feat: descripción del cambio"`
+4. Haz push a tu fork: `git push origin feature/mi-mejora`
+5. Abre un **Pull Request** describiendo el cambio
+
+### Guía de estilo
+- Código Lua siguiendo las convenciones de QBCore
+- Comentarios en **español** si es lógica de negocio, **inglés** si es técnico
+- Sin dependencias externas nuevas sin consultar primero en un Issue
+- Probado en un servidor FiveM con QBCore antes de hacer el PR
+
+### Bugs y sugerencias
+Abre un [Issue](https://github.com/HidmomTv/intentory/issues) con:
+- Descripción del problema o idea
+- Pasos para reproducirlo (si es un bug)
+- Versión del servidor y QBCore
+
+---
+
+## 📄 Licencia
+
+Distribuido bajo la licencia [GPL-3.0](LICENSE).  
+Puedes usar, modificar y redistribuir el código **siempre que mantengas la misma licencia y créditos al autor original**.
+
+---
+
+<p align="center">
+  Hecho con ❤️ por <a href="https://github.com/HidmomTv">HidmomTv</a>
+</p>

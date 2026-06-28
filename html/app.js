@@ -1,956 +1,927 @@
-const InventoryContainer = Vue.createApp({
-    data() {
-        return this.getInitialState();
-    },
-    computed: {
-        playerWeight() {
-            const weight = Object.values(this.playerInventory).reduce((total, item) => {
-                if (item && item.weight !== undefined && item.amount !== undefined) {
-                    return total + item.weight * item.amount;
-                }
-                return total;
-            }, 0);
-            return isNaN(weight) ? 0 : weight;
-        },
-        otherInventoryWeight() {
-            const weight = Object.values(this.otherInventory).reduce((total, item) => {
-                if (item && item.weight !== undefined && item.amount !== undefined) {
-                    return total + item.weight * item.amount;
-                }
-                return total;
-            }, 0);
-            return isNaN(weight) ? 0 : weight;
-        },
-        weightBarClass() {
-            const weightPercentage = (this.playerWeight / this.maxWeight) * 100;
-            if (weightPercentage < 50) {
-                return "low";
-            } else if (weightPercentage < 75) {
-                return "medium";
-            } else {
-                return "high";
-            }
-        },
-        otherWeightBarClass() {
-            const weightPercentage = (this.otherInventoryWeight / this.otherInventoryMaxWeight) * 100;
-            if (weightPercentage < 50) {
-                return "low";
-            } else if (weightPercentage < 75) {
-                return "medium";
-            } else {
-                return "high";
-            }
-        },
-        shouldCenterInventory() {
-            return this.isOtherInventoryEmpty;
-        },
-    },
-    watch: {
-        transferAmount(newVal) {
-            if (newVal !== null && newVal < 1) this.transferAmount = 1;
-        },
-    },
-    methods: {
-        getInitialState() {
-            return {
-                // Config Options
-                maxWeight: 0,
-                totalSlots: 0,
-                // Escape Key
-                isInventoryOpen: false,
-                // Single pane
-                isOtherInventoryEmpty: true,
-                // Error handling
-                errorSlot: null,
-                // Player Inventory
-                playerInventory: {},
-                inventoryLabel: "Inventory",
-                totalWeight: 0,
-                // Other inventory
-                otherInventory: {},
-                otherInventoryName: "",
-                otherInventoryLabel: "Drop",
-                otherInventoryMaxWeight: 1000000,
-                otherInventorySlots: 100,
-                isShopInventory: false,
-                // Where item is coming from
-                inventory: "",
-                // Context Menu
-                showContextMenu: false,
-                contextMenuPosition: { top: "0px", left: "0px" },
-                contextMenuItem: null,
-                showSubmenu: false,
-                // Hotbar
-                showHotbar: false,
-                hotbarItems: [],
-                // Notification box
-                showNotification: false,
-                notificationText: "",
-                notificationImage: "",
-                notificationType: "added",
-                notificationAmount: 1,
-                // Required items box
-                showRequiredItems: false,
-                requiredItems: [],
-                // Attachments
-                selectedWeapon: null,
-                showWeaponAttachments: false,
-                selectedWeaponAttachments: [],
-                // Dragging and dropping
-                currentlyDraggingItem: null,
-                currentlyDraggingSlot: null,
-                dragStartX: 0,
-                dragStartY: 0,
-                ghostElement: null,
-                dragStartInventoryType: "player",
-                transferAmount: null,
-            };
-        },
-        openInventory(data) {
-            if (this.showHotbar) {
-                this.toggleHotbar(false);
-            }
+/* ==========================================
+   QBCore Premium Inventory - NUI Controller
+   NoPixel 4.0 Inspired Vanilla Web
+   ========================================== */
 
-            this.isInventoryOpen = true;
-            this.maxWeight = data.maxweight;
-            this.totalSlots = data.slots;
-            this.playerInventory = {};
-            this.otherInventory = {};
+let playerData = {
+    inventory: {},
+    maxWeight: 120000,
+    currentWeight: 0
+};
 
-            if (data.inventory) {
-                if (Array.isArray(data.inventory)) {
-                    data.inventory.forEach((item) => {
-                        if (item && item.slot) {
-                            this.playerInventory[item.slot] = item;
-                        }
-                    });
-                } else if (typeof data.inventory === "object") {
-                    for (const key in data.inventory) {
-                        const item = data.inventory[key];
-                        if (item && item.slot) {
-                            this.playerInventory[item.slot] = item;
-                        }
-                    }
-                }
-            }
+let otherData = {
+    id: null,
+    name: "Suelo",
+    inventory: {},
+    maxSlots: 40,
+    invType: "drop"
+};
 
-            if (data.other) {
-                if (data.other && data.other.inventory) {
-                    if (Array.isArray(data.other.inventory)) {
-                        data.other.inventory.forEach((item) => {
-                            if (item && item.slot) {
-                                this.otherInventory[item.slot] = item;
-                            }
-                        });
-                    } else if (typeof data.other.inventory === "object") {
-                        for (const key in data.other.inventory) {
-                            const item = data.other.inventory[key];
-                            if (item && item.slot) {
-                                this.otherInventory[item.slot] = item;
-                            }
-                        }
-                    }
-                }
+let draggedItem = null;
 
-                this.otherInventoryName = data.other.name;
-                this.otherInventoryLabel = data.other.label;
-                this.otherInventoryMaxWeight = data.other.maxweight;
-                this.otherInventorySlots = data.other.slots;
+window.addEventListener("mousemove", (e) => {
+    if (!window._dragState) return;
+    const dist = Math.abs(e.clientX - window._dragState.startX) + Math.abs(e.clientY - window._dragState.startY);
+    if (dist > 4 && !window._dragState.active) {
+        window._dragState.active = true;
+        let ghost = document.getElementById("drag-ghost");
+        if (!ghost) {
+            ghost = document.createElement("div");
+            ghost.id = "drag-ghost";
+            ghost.style.cssText = "position: fixed; pointer-events: none; z-index: 999999; width: 68px; height: 68px; background: var(--bg-slot-hover); border: 2px solid var(--accent-color); border-radius: 10px; display: flex; align-items: center; justify-content: center; box-shadow: 0 10px 25px rgba(0,0,0,0.8); transform: translate(-50%, -50%);";
+            document.body.appendChild(ghost);
+        }
+        const img = window._dragState.slotDiv.querySelector("img");
+        ghost.innerHTML = img ? `<img src="${img.src}" style="max-width: 80%; max-height: 80%; pointer-events: none;">` : `<span>${window._dragState.item.name}</span>`;
+        ghost.classList.remove("hidden");
+    }
 
-                if (this.otherInventoryName.startsWith("shop-")) {
-                    this.isShopInventory = true;
-                } else {
-                    this.isShopInventory = false;
-                }
-
-                this.isOtherInventoryEmpty = false;
-            }
-        },
-        updateInventory(data) {
-            this.playerInventory = {};
-
-            if (data.inventory) {
-                if (Array.isArray(data.inventory)) {
-                    data.inventory.forEach((item) => {
-                        if (item && item.slot) {
-                            this.playerInventory[item.slot] = item;
-                        }
-                    });
-                } else if (typeof data.inventory === "object") {
-                    for (const key in data.inventory) {
-                        const item = data.inventory[key];
-                        if (item && item.slot) {
-                            this.playerInventory[item.slot] = item;
-                        }
-                    }
-                }
-            }
-        },
-        async closeInventory() {
-            this.clearDragData();
-            let inventoryName = this.otherInventoryName;
-            Object.assign(this, this.getInitialState());
-            try {
-                await axios.post("https://qb-inventory/CloseInventory", { name: inventoryName });
-            } catch (error) {
-                console.error("Error closing inventory:", error);
-            }
-        },
-        clearTransferAmount() {
-            this.transferAmount = null;
-        },
-        getItemInSlot(slot, inventoryType) {
-            if (inventoryType === "player") {
-                return this.playerInventory[slot] || null;
-            } else if (inventoryType === "other") {
-                return this.otherInventory[slot] || null;
-            }
-            return null;
-        },
-        getHotbarItemInSlot(slot) {
-            return this.hotbarItems[slot - 1] || null;
-        },
-        containerMouseDownAction(event) {
-            if (event.button === 0 && this.showContextMenu) {
-                this.showContextMenu = false;
-            }
-        },
-        handleMouseDown(event, slot, inventory) {
-            if (event.button === 1) return; // skip middle mouse
-            event.preventDefault();
-            const itemInSlot = this.getItemInSlot(slot, inventory);
-            if (event.button === 0) {
-                if (event.shiftKey && itemInSlot) {
-                    this.splitAndPlaceItem(itemInSlot, inventory);
-                } else {
-                    this.startDrag(event, slot, inventory);
-                }
-            } else if (event.button === 2 && itemInSlot) {
-                if (this.otherInventoryName.startsWith("shop-")) {
-                    this.handlePurchase(slot, itemInSlot.slot, itemInSlot, 1);
-                    return;
-                }
-                if (!this.isOtherInventoryEmpty) {
-                    this.moveItemBetweenInventories(itemInSlot, inventory);
-                } else {
-                    this.showContextMenuOptions(event, itemInSlot);
-                }
-            }
-        },
-        moveItemBetweenInventories(item, sourceInventoryType) {
-            const sourceInventory = sourceInventoryType === "player" ? this.playerInventory : this.otherInventory;
-            const targetInventory = sourceInventoryType === "player" ? this.otherInventory : this.playerInventory;
-            const targetWeight = sourceInventoryType === "player" ? this.otherInventoryWeight : this.playerWeight;
-            const maxTargetWeight = sourceInventoryType === "player" ? this.otherInventoryMaxWeight : this.maxWeight;
-            const amountToTransfer = this.transferAmount !== null ? this.transferAmount : 1;
-            let targetSlot = null;
-
-            const sourceItem = sourceInventory[item.slot];
-            if (!sourceItem || sourceItem.amount < amountToTransfer) {
-                this.inventoryError(item.slot);
-                return;
-            }
-
-            const totalWeightAfterTransfer = targetWeight + sourceItem.weight * amountToTransfer;
-
-            if (totalWeightAfterTransfer > maxTargetWeight) {
-                this.inventoryError(item.slot);
-                return;
-            }
-
-            if (item.unique) {
-                targetSlot = this.findNextAvailableSlot(targetInventory);
-                if (targetSlot === null) {
-                    this.inventoryError(item.slot);
-                    return;
-                }
-
-                const newItem = {
-                    ...item,
-                    inventory: sourceInventoryType === "player" ? "other" : "player",
-                    amount: amountToTransfer,
-                };
-                targetInventory[targetSlot] = newItem;
-                newItem.slot = targetSlot;
-            } else {
-                const targetItemKey = Object.keys(targetInventory).find((key) => targetInventory[key] && targetInventory[key].name === item.name);
-                const targetItem = targetInventory[targetItemKey];
-
-                if (!targetItem) {
-                    const newItem = {
-                        ...item,
-                        inventory: sourceInventoryType === "player" ? "other" : "player",
-                        amount: amountToTransfer,
-                    };
-
-                    targetSlot = this.findNextAvailableSlot(targetInventory);
-                    if (targetSlot === null) {
-                        this.inventoryError(item.slot);
-                        return;
-                    }
-
-                    targetInventory[targetSlot] = newItem;
-                    newItem.slot = targetSlot;
-                } else {
-                    targetItem.amount += amountToTransfer;
-                    targetSlot = targetItem.slot;
-                }
-            }
-
-            sourceItem.amount -= amountToTransfer;
-
-            if (sourceItem.amount <= 0) {
-                delete sourceInventory[item.slot];
-            }
-
-            this.postInventoryData(sourceInventoryType, sourceInventoryType === "player" ? "other" : "player", item.slot, targetSlot, sourceItem.amount, amountToTransfer);
-        },
-        startDrag(event, slot, inventoryType) {
-            event.preventDefault();
-            const item = this.getItemInSlot(slot, inventoryType);
-            if (!item) return;
-            const slotElement = event.target.closest(".item-slot");
-            if (!slotElement) return;
-            const ghostElement = this.createGhostElement(slotElement);
-            document.body.appendChild(ghostElement);
-            const offsetX = ghostElement.offsetWidth / 2;
-            const offsetY = ghostElement.offsetHeight / 2;
-            ghostElement.style.left = `${event.clientX - offsetX}px`;
-            ghostElement.style.top = `${event.clientY - offsetY}px`;
-            this.ghostElement = ghostElement;
-            this.currentlyDraggingItem = item;
-            this.currentlyDraggingSlot = slot;
-            this.dragStartX = event.clientX;
-            this.dragStartY = event.clientY;
-            this.dragStartInventoryType = inventoryType;
-            this.showContextMenu = false;
-        },
-        createGhostElement(slotElement) {
-            const ghostElement = slotElement.cloneNode(true);
-            ghostElement.style.position = "absolute";
-            ghostElement.style.pointerEvents = "none";
-            ghostElement.style.opacity = "0.7";
-            ghostElement.style.zIndex = "1000";
-            ghostElement.style.width = getComputedStyle(slotElement).width;
-            ghostElement.style.height = getComputedStyle(slotElement).height;
-            ghostElement.style.boxSizing = "border-box";
-            return ghostElement;
-        },
-        drag(event) {
-            if (!this.currentlyDraggingItem) return;
-            const centeredX = event.clientX - this.ghostElement.offsetWidth / 2;
-            const centeredY = event.clientY - this.ghostElement.offsetHeight / 2;
-            this.ghostElement.style.left = `${centeredX}px`;
-            this.ghostElement.style.top = `${centeredY}px`;
-        },
-        endDrag(event) {
-            if (!this.currentlyDraggingItem) {
-                return;
-            }
-
-            const elementsUnderCursor = document.elementsFromPoint(event.clientX, event.clientY);
-
-            const playerSlotElement = elementsUnderCursor.find((el) => el.classList.contains("item-slot") && el.closest(".player-inventory-section"));
-
-            const otherSlotElement = elementsUnderCursor.find((el) => el.classList.contains("item-slot") && el.closest(".other-inventory-section"));
-
-            if (playerSlotElement) {
-                const targetSlot = Number(playerSlotElement.dataset.slot);
-                if (targetSlot && !(targetSlot === this.currentlyDraggingSlot && this.dragStartInventoryType === "player")) {
-                    this.handleDropOnPlayerSlot(targetSlot);
-                }
-            } else if (otherSlotElement) {
-                const targetSlot = Number(otherSlotElement.dataset.slot);
-                if (targetSlot && !(targetSlot === this.currentlyDraggingSlot && this.dragStartInventoryType === "other")) {
-                    this.handleDropOnOtherSlot(targetSlot);
-                }
-            } else if (this.isOtherInventoryEmpty && this.dragStartInventoryType === "player") {
-                const isOverInventoryGrid = elementsUnderCursor.some((el) => el.classList.contains("inventory-grid") || el.classList.contains("item-grid"));
-
-                if (!isOverInventoryGrid) {
-                    this.handleDropOnInventoryContainer();
-                }
-            }
-
-            this.clearDragData();
-        },
-        handleDropOnPlayerSlot(targetSlot) {
-            if (this.isShopInventory && this.dragStartInventoryType === "other") {
-                const { currentlyDraggingSlot, currentlyDraggingItem, transferAmount } = this;
-                const targetInventory = this.getInventoryByType("player");
-                const targetItem = targetInventory[targetSlot];
-                if ((targetItem && targetItem.name !== currentlyDraggingItem.name) || (targetItem && targetItem.name === currentlyDraggingItem.name && currentlyDraggingItem.unique)) {
-                    this.inventoryError(currentlyDraggingSlot);
-                    return;
-                }
-                this.handlePurchase(targetSlot, currentlyDraggingSlot, currentlyDraggingItem, transferAmount);
-            } else {
-                this.handleItemDrop("player", targetSlot);
-            }
-        },
-        handleDropOnOtherSlot(targetSlot) {
-            this.handleItemDrop("other", targetSlot);
-        },
-        async handleDropOnInventoryContainer() {
-            if (this.isOtherInventoryEmpty && this.dragStartInventoryType === "player") {
-                const newItem = {
-                    ...this.currentlyDraggingItem,
-                    amount: this.currentlyDraggingItem.amount,
-                    slot: 1,
-                    inventory: "other",
-                };
-                const draggingItem = this.currentlyDraggingItem;
-                try {
-                    const response = await axios.post("https://qb-inventory/DropItem", {
-                        ...newItem,
-                        fromSlot: this.currentlyDraggingSlot,
-                    });
-
-                    if (response.data) {
-                        this.otherInventory[1] = newItem;
-                        const draggingItemKey = Object.keys(this.playerInventory).find((key) => this.playerInventory[key] === draggingItem);
-                        if (draggingItemKey) {
-                            delete this.playerInventory[draggingItemKey];
-                        }
-                        this.otherInventoryName = response.data;
-                        this.otherInventoryLabel = response.data;
-                        this.isOtherInventoryEmpty = false;
-                        this.clearDragData();
-                    }
-                } catch (error) {
-                    this.inventoryError(this.currentlyDraggingSlot);
-                }
-            }
-            this.clearDragData();
-        },
-        clearDragData() {
-            if (this.ghostElement) {
-                document.body.removeChild(this.ghostElement);
-                this.ghostElement = null;
-            }
-            this.currentlyDraggingItem = null;
-            this.currentlyDraggingSlot = null;
-        },
-        getInventoryByType(inventoryType) {
-            return inventoryType === "player" ? this.playerInventory : this.otherInventory;
-        },
-        handleItemDrop(targetInventoryType, targetSlot) {
-            try {
-                const isShop = this.otherInventoryName.indexOf("shop-");
-                if (this.dragStartInventoryType === "other" && targetInventoryType === "other" && isShop !== -1) {
-                    return;
-                }
-
-                const targetSlotNumber = parseInt(targetSlot, 10);
-                if (isNaN(targetSlotNumber)) {
-                    throw new Error("Invalid target slot number");
-                }
-
-                const sourceInventory = this.getInventoryByType(this.dragStartInventoryType);
-                const targetInventory = this.getInventoryByType(targetInventoryType);
-
-                const sourceItem = sourceInventory[this.currentlyDraggingSlot];
-                if (!sourceItem) {
-                    throw new Error("No item in the source slot to transfer");
-                }
-
-                const amountToTransfer = this.transferAmount !== null ? this.transferAmount : sourceItem.amount;
-                if (sourceItem.amount < amountToTransfer) {
-                    throw new Error("Insufficient amount of item in source inventory");
-                }
-
-                if (targetInventoryType !== this.dragStartInventoryType) {
-                    if (targetInventoryType == "other") {
-                        const totalWeightAfterTransfer = this.otherInventoryWeight + sourceItem.weight * amountToTransfer;
-                        if (totalWeightAfterTransfer > this.otherInventoryMaxWeight) {
-                            throw new Error("Insufficient weight capacity in target inventory");
-                        }
-                    } else if (targetInventoryType == "player") {
-                        const totalWeightAfterTransfer = this.playerWeight + sourceItem.weight * amountToTransfer;
-                        if (totalWeightAfterTransfer > this.maxWeight) {
-                            throw new Error("Insufficient weight capacity in player inventory");
-                        }
-                    }
-                }
-
-                const targetItem = targetInventory[targetSlotNumber];
-
-                if (targetItem) {
-                    if (sourceItem.name === targetItem.name && targetItem.unique) {
-                        this.inventoryError(this.currentlyDraggingSlot);
-                        return;
-                    }
-                    if (sourceItem.name === targetItem.name && !targetItem.unique) {
-                        targetItem.amount += amountToTransfer;
-                        sourceItem.amount -= amountToTransfer;
-                        if (sourceItem.amount <= 0) {
-                            delete sourceInventory[this.currentlyDraggingSlot];
-                        }
-                        this.postInventoryData(this.dragStartInventoryType, targetInventoryType, this.currentlyDraggingSlot, targetSlotNumber, sourceItem.amount, amountToTransfer);
-                    } else {
-                        sourceInventory[this.currentlyDraggingSlot] = targetItem;
-                        targetInventory[targetSlotNumber] = sourceItem;
-                        sourceInventory[this.currentlyDraggingSlot].slot = this.currentlyDraggingSlot;
-                        targetInventory[targetSlotNumber].slot = targetSlotNumber;
-                        this.postInventoryData(this.dragStartInventoryType, targetInventoryType, this.currentlyDraggingSlot, targetSlotNumber, sourceItem.amount, targetItem.amount);
-                    }
-                } else {
-                    sourceItem.amount -= amountToTransfer;
-                    if (sourceItem.amount <= 0) {
-                        delete sourceInventory[this.currentlyDraggingSlot];
-                    }
-                    targetInventory[targetSlotNumber] = { ...sourceItem, amount: amountToTransfer, slot: targetSlotNumber };
-                    this.postInventoryData(this.dragStartInventoryType, targetInventoryType, this.currentlyDraggingSlot, targetSlotNumber, sourceItem.amount, amountToTransfer);
-                }
-            } catch (error) {
-                console.error(error.message);
-                this.inventoryError(this.currentlyDraggingSlot);
-            } finally {
-                this.clearDragData();
-            }
-        },
-        async handlePurchase(targetSlot, sourceSlot, sourceItem, transferAmount) {
-            try {
-                const response = await axios.post("https://qb-inventory/AttemptPurchase", {
-                    item: sourceItem,
-                    amount: transferAmount || sourceItem.amount,
-                    shop: this.otherInventoryName,
-                });
-                if (response.data) {
-                    const sourceInventory = this.getInventoryByType("other");
-                    const targetInventory = this.getInventoryByType("player");
-                    const amountToTransfer = transferAmount !== null ? transferAmount : sourceItem.amount;
-                    if (sourceItem.amount < amountToTransfer) {
-                        this.inventoryError(sourceSlot);
-                        return;
-                    }
-                    let targetItem = targetInventory[targetSlot];
-                    if (!targetItem || targetItem.name !== sourceItem.name) {
-                        let foundSlot = Object.keys(targetInventory).find((slot) => targetInventory[slot] && targetInventory[slot].name === sourceItem.name);
-                        if (foundSlot) {
-                            targetInventory[foundSlot].amount += amountToTransfer;
-                        } else {
-                            const targetInventoryKeys = Object.keys(targetInventory);
-                            if (targetInventoryKeys.length < this.totalSlots) {
-                                let freeSlot = Array.from({ length: this.totalSlots }, (_, i) => i + 1).find((i) => !(i in targetInventory));
-                                targetInventory[freeSlot] = {
-                                    ...sourceItem,
-                                    amount: amountToTransfer,
-                                };
-                            } else {
-                                this.inventoryError(sourceSlot);
-                                return;
-                            }
-                        }
-                    } else {
-                        targetItem.amount += amountToTransfer;
-                    }
-                    sourceItem.amount -= amountToTransfer;
-                    if (sourceItem.amount <= 0) {
-                        delete sourceInventory[sourceSlot];
-                    }
-                } else {
-                    this.inventoryError(sourceSlot);
-                }
-            } catch (error) {
-                this.inventoryError(sourceSlot);
-            }
-        },
-        async dropItem(item, quantity) {
-            if (item && item.name) {
-                const playerItemKey = Object.keys(this.playerInventory).find((key) => this.playerInventory[key] && this.playerInventory[key].slot === item.slot);
-                if (playerItemKey) {
-                    let amountToGive;
-
-                    if (typeof quantity === "string") {
-                        switch (quantity) {
-                            case "half":
-                                amountToGive = Math.ceil(item.amount / 2);
-                                break;
-                            case "all":
-                                amountToGive = item.amount;
-                                break;
-                            default:
-                                console.error("Invalid quantity specified.");
-                                return;
-                        }
-                    } else if (typeof quantity === "number" && quantity > 0) {
-                        amountToGive = quantity;
-                    } else {
-                        console.error("Invalid quantity type specified.");
-                        return;
-                    }
-
-                    if (amountToGive > item.amount) {
-                        amountToGive = item.amount;
-                    }
-
-                    const newItem = {
-                        ...item,
-                        amount: amountToGive,
-                        slot: 1,
-                        inventory: "other",
-                    };
-
-                    try {
-                        const response = await axios.post("https://qb-inventory/DropItem", {
-                            ...newItem,
-                            fromSlot: item.slot,
-                        });
-
-                        if (response.data) {
-                            delete this.playerInventory[playerItemKey];
-                            this.otherInventory[1] = newItem;
-                            this.otherInventoryName = response.data;
-                            this.otherInventoryLabel = response.data;
-                            this.isOtherInventoryEmpty = false;
-                        }
-                    } catch (error) {
-                        this.inventoryError(item.slot);
-                    }
-                }
-            }
-            this.showContextMenu = false;
-        },
-        async useItem(item) {
-            if (!item || item.useable === false) {
-                return;
-            }
-            const playerItemKey = Object.keys(this.playerInventory).find((key) => this.playerInventory[key] && this.playerInventory[key].slot === item.slot);
-            if (playerItemKey) {
-                try {
-                    await axios.post("https://qb-inventory/UseItem", {
-                        inventory: "player",
-                        item: item,
-                    });
-                    if (item.shouldClose) {
-                        this.closeInventory();
-                    }
-                } catch (error) {
-                    console.error("Error using the item: ", error);
-                }
-            }
-            this.showContextMenu = false;
-        },
-        showContextMenuOptions(event, item) {
-            event.preventDefault();
-            if (this.contextMenuItem && this.contextMenuItem.name === item.name && this.showContextMenu) {
-                this.showContextMenu = false;
-                this.contextMenuItem = null;
-            } else {
-                if (item.inventory === "other") {
-                    const matchingItemKey = Object.keys(this.playerInventory).find((key) => this.playerInventory[key].name === item.name);
-                    const matchingItem = this.playerInventory[matchingItemKey];
-
-                    if (matchingItem && matchingItem.unique) {
-                        const newItemKey = Object.keys(this.playerInventory).length + 1;
-                        const newItem = {
-                            ...item,
-                            inventory: "player",
-                            amount: 1,
-                        };
-                        this.playerInventory[newItemKey] = newItem;
-                    } else if (matchingItem) {
-                        matchingItem.amount++;
-                    } else {
-                        const newItemKey = Object.keys(this.playerInventory).length + 1;
-                        const newItem = {
-                            ...item,
-                            inventory: "player",
-                            amount: 1,
-                        };
-                        this.playerInventory[newItemKey] = newItem;
-                    }
-                    item.amount--;
-
-                    if (item.amount <= 0) {
-                        const itemKey = Object.keys(this.otherInventory).find((key) => this.otherInventory[key] === item);
-                        if (itemKey) {
-                            delete this.otherInventory[itemKey];
-                        }
-                    }
-                }
-                const menuLeft = event.clientX;
-                const menuTop = event.clientY;
-                this.showContextMenu = true;
-                this.contextMenuPosition = {
-                    top: `${menuTop}px`,
-                    left: `${menuLeft}px`,
-                };
-                this.contextMenuItem = item;
-            }
-        },
-        async giveItem(item, quantity) {
-            if (item && item.name) {
-                const selectedItem = item;
-                const playerHasItem = Object.values(this.playerInventory).some((invItem) => invItem && invItem.name === selectedItem.name);
-
-                if (playerHasItem) {
-                    let amountToGive;
-                    if (typeof quantity === "string") {
-                        switch (quantity) {
-                            case "half":
-                                amountToGive = Math.ceil(selectedItem.amount / 2);
-                                break;
-                            case "all":
-                                amountToGive = selectedItem.amount;
-                                break;
-                            default:
-                                console.error("Invalid quantity specified.");
-                                return;
-                        }
-                    } else {
-                        amountToGive = quantity;
-                    }
-
-                    if (amountToGive > selectedItem.amount) {
-                        console.error("Specified quantity exceeds available amount.");
-                        return;
-                    }
-
-                    try {
-                        const response = await axios.post("https://qb-inventory/GiveItem", {
-                            item: selectedItem,
-                            amount: amountToGive,
-                            slot: selectedItem.slot,
-                            info: selectedItem.info,
-                        });
-                        if (!response.data) return;
-
-                        this.playerInventory[selectedItem.slot].amount -= amountToGive;
-                        if (this.playerInventory[selectedItem.slot].amount === 0) {
-                            delete this.playerInventory[selectedItem.slot];
-                        }
-                    } catch (error) {
-                        console.error("An error occurred while giving the item:", error);
-                    }
-                } else {
-                    console.error("Player does not have the item in their inventory. Item cannot be given.");
-                }
-            }
-            this.showContextMenu = false;
-        },
-        findNextAvailableSlot(inventory) {
-            for (let slot = 1; slot <= this.totalSlots; slot++) {
-                if (!inventory[slot]) {
-                    return slot;
-                }
-            }
-            return null;
-        },
-        splitAndPlaceItem(item, inventoryType) {
-            const inventoryRef = inventoryType === "player" ? this.playerInventory : this.otherInventory;
-            if (item && item.amount > 1) {
-                const originalSlot = Object.keys(inventoryRef).find((key) => inventoryRef[key] === item);
-                if (originalSlot !== undefined) {
-                    const newItem = { ...item, amount: Math.ceil(item.amount / 2) };
-                    const nextSlot = this.findNextAvailableSlot(inventoryRef);
-                    if (nextSlot !== null) {
-                        inventoryRef[nextSlot] = newItem;
-                        inventoryRef[originalSlot] = { ...item, amount: Math.floor(item.amount / 2) };
-                        this.postInventoryData(inventoryType, inventoryType, originalSlot, nextSlot, item.amount, newItem.amount);
-                    }
-                }
-            }
-            this.showContextMenu = false;
-        },
-        toggleHotbar(data) {
-            if (data.open) {
-                this.hotbarItems = data.items;
-                this.showHotbar = true;
-            } else {
-                this.showHotbar = false;
-                this.hotbarItems = [];
-            }
-        },
-        showItemNotification(itemData) {
-            this.notificationText = itemData.item.label;
-            this.notificationImage = "images/" + itemData.item.image;
-            this.notificationType = itemData.type === "add" ? "Received" : itemData.type === "use" ? "Used" : "Removed";
-            this.notificationAmount = itemData.amount || 1;
-            this.showNotification = true;
-            setTimeout(() => {
-                this.showNotification = false;
-            }, 3000);
-        },
-        showRequiredItem(data) {
-            if (data.toggle) {
-                this.requiredItems = data.items;
-                this.showRequiredItems = true;
-            } else {
-                setTimeout(() => {
-                    this.showRequiredItems = false;
-                    this.requiredItems = [];
-                }, 100);
-            }
-        },
-        inventoryError(slot) {
-            const slotElement = document.getElementById(`slot-${slot}`);
-            if (slotElement) {
-                slotElement.style.backgroundColor = "red";
-            }
-            axios.post("https://qb-inventory/PlayDropFail", {}).catch((error) => {
-                console.error("Error playing drop fail:", error);
-            });
-            setTimeout(() => {
-                if (slotElement) {
-                    slotElement.style.backgroundColor = "";
-                }
-            }, 1000);
-        },
-        copySerial() {
-            if (!this.contextMenuItem) {
-                return;
-            }
-            const item = this.contextMenuItem;
-            if (item) {
-                const el = document.createElement("textarea");
-                el.value = item.info.serie;
-                document.body.appendChild(el);
-                el.select();
-                document.execCommand("copy");
-                document.body.removeChild(el);
-            }
-        },
-        openWeaponAttachments() {
-            if (!this.contextMenuItem) {
-                return;
-            }
-            if (!this.showWeaponAttachments) {
-                this.selectedWeapon = this.contextMenuItem;
-                this.showWeaponAttachments = true;
-                axios
-                    .post("https://qb-inventory/GetWeaponData", JSON.stringify({ weapon: this.selectedWeapon.name, ItemData: this.selectedWeapon }))
-                    .then((response) => {
-                        const data = response.data;
-                        if (data.AttachmentData !== null && data.AttachmentData !== undefined) {
-                            if (data.AttachmentData.length > 0) {
-                                this.selectedWeaponAttachments = data.AttachmentData;
-                            }
-                        }
-                    })
-                    .catch((error) => {
-                        console.error(error);
-                    });
-            } else {
-                this.showWeaponAttachments = false;
-                this.selectedWeapon = null;
-                this.selectedWeaponAttachments = [];
-            }
-        },
-        removeAttachment(attachment) {
-            if (!this.selectedWeapon) {
-                return;
-            }
-            const index = this.selectedWeaponAttachments.indexOf(attachment);
-            if (index !== -1) {
-                this.selectedWeaponAttachments.splice(index, 1);
-            }
-            axios
-                .post("https://qb-inventory/RemoveAttachment", JSON.stringify({ AttachmentData: attachment, WeaponData: this.selectedWeapon }))
-                .then((response) => {
-                    this.selectedWeapon = response.data.WeaponData;
-                    if (response.data.Attachments) {
-                        this.selectedWeaponAttachments = response.data.Attachments;
-                    }
-                    const nextSlot = this.findNextAvailableSlot(this.playerInventory);
-                    if (nextSlot !== null) {
-                        response.data.itemInfo.amount = 1;
-                        this.playerInventory[nextSlot] = response.data.itemInfo;
-                    }
-                })
-                .catch((error) => {
-                    console.error(error);
-                    this.selectedWeaponAttachments.splice(index, 0, attachment);
-                });
-        },
-        generateTooltipContent(item) {
-            if (!item) {
-                return "";
-            }
-            let content = `<div class="custom-tooltip"><div class="tooltip-header">${item.label}</div><hr class="tooltip-divider">`;
-            const description = item.info && item.info.description ? item.info.description.replace(/\n/g, "<br>") : item.description ? item.description.replace(/\n/g, "<br>") : "No description available.";
-            if (item.info && Object.keys(item.info).length > 0 && item.info.display !== false) {
-                for (const [key, value] of Object.entries(item.info)) {
-                    if (key !== "description" && key !== "display") {
-                        let valueStr = value;
-                        if (key === "attachments") {
-                            valueStr = Object.keys(value).length > 0 ? "true" : "false";
-                        }
-                        content += `<div class="tooltip-info"><span class="tooltip-info-key">${this.formatKey(key)}:</span> ${valueStr}</div>`;
-                    }
-                }
-            }
-            content += `<div class="tooltip-description">${description}</div>`;
-            content += `<div class="tooltip-weight"><i class="fas fa-weight-hanging"></i> ${item.weight !== undefined && item.weight !== null ? (item.weight / 1000).toFixed(1) : "N/A"}kg</div>`;
-            content += `</div>`;
-            return content;
-        },
-        formatKey(key) {
-            return key.replace(/_/g, " ").charAt(0).toUpperCase() + key.slice(1);
-        },
-        postInventoryData(fromInventory, toInventory, fromSlot, toSlot, fromAmount, toAmount) {
-            let fromInventoryName = fromInventory === "other" ? this.otherInventoryName : fromInventory;
-            let toInventoryName = toInventory === "other" ? this.otherInventoryName : toInventory;
-
-            axios
-                .post("https://qb-inventory/SetInventoryData", {
-                    fromInventory: fromInventoryName,
-                    toInventory: toInventoryName,
-                    fromSlot,
-                    toSlot,
-                    fromAmount,
-                    toAmount,
-                })
-                .then((response) => {
-                    this.clearDragData();
-                })
-                .catch((error) => {
-                    console.error("Error posting inventory data:", error);
-                });
-        },
-    },
-    mounted() {
-        window.addEventListener("keydown", (event) => {
-            const key = event.key;
-            if (key === "Escape" || key === "Tab") {
-                if (this.isInventoryOpen) {
-                    this.closeInventory();
-                }
-            }
-        });
-
-        window.addEventListener("message", (event) => {
-            switch (event.data.action) {
-                case "open":
-                    this.openInventory(event.data);
-                    break;
-                case "close":
-                    this.closeInventory();
-                    break;
-                case "update":
-                    this.updateInventory(event.data);
-                    break;
-                case "toggleHotbar":
-                    this.toggleHotbar(event.data);
-                    break;
-                case "itemBox":
-                    this.showItemNotification(event.data);
-                    break;
-                case "requiredItem":
-                    this.showRequiredItem(event.data);
-                    break;
-                default:
-                    console.warn(`Unexpected action: ${event.data.action}`);
-            }
-        });
-    },
-    beforeUnmount() {
-        window.removeEventListener("mousemove", () => {});
-        window.removeEventListener("keydown", () => {});
-        window.removeEventListener("message", () => {});
-    },
+    if (window._dragState.active) {
+        const ghost = document.getElementById("drag-ghost");
+        if (ghost) {
+            ghost.style.left = `${e.clientX}px`;
+            ghost.style.top = `${e.clientY}px`;
+        }
+        document.querySelectorAll(".inv-slot.drag-over").forEach(el => el.classList.remove("drag-over"));
+        const hovered = document.elementFromPoint(e.clientX, e.clientY);
+        const targetSlotDiv = hovered ? hovered.closest(".inv-slot") : null;
+        if (targetSlotDiv && targetSlotDiv !== window._dragState.slotDiv) {
+            targetSlotDiv.classList.add("drag-over");
+        }
+    }
 });
 
-InventoryContainer.use(FloatingVue);
-InventoryContainer.mount("#app");
+window.addEventListener("mouseup", (e) => {
+    if (!window._dragState) return;
+    const ds = window._dragState;
+    window._dragState = null;
+
+    const ghost = document.getElementById("drag-ghost");
+    if (ghost) ghost.classList.add("hidden");
+    document.querySelectorAll(".inv-slot.drag-over").forEach(el => el.classList.remove("drag-over"));
+
+    if (ds.active) {
+        const hovered = document.elementFromPoint(e.clientX, e.clientY);
+        const targetSlotDiv = hovered ? hovered.closest(".inv-slot") : null;
+        if (targetSlotDiv) {
+            const targetSlot = Number(targetSlotDiv.dataset.slot);
+            const targetInv = targetSlotDiv.dataset.invType;
+            const fromSlot = Number(ds.fromSlot);
+            const fromInv = ds.fromInv;
+            const amountElem = document.getElementById("item-amount");
+            const amount = (amountElem && Number(amountElem.value)) ? Number(amountElem.value) : Number(ds.item.amount);
+
+            if (!(fromSlot === targetSlot && fromInv === targetInv)) {
+                moveItem(fromSlot, targetSlot, fromInv, targetInv, amount, ds.item);
+            }
+        }
+    }
+});
+
+window.handleImgError = function(img, name) {
+    const baseName = (name || 'default').replace(/\.[^/.]+$/, "");
+    if (!img.dataset.triedWebp) {
+        img.dataset.triedWebp = "1";
+        img.src = `images/${baseName}.webp`;
+    } else if (!img.dataset.triedPNG) {
+        img.dataset.triedPNG = "1";
+        img.src = `images/${baseName}.PNG`;
+    } else if (!img.dataset.triedLegacy) {
+        img.dataset.triedLegacy = "1";
+        img.src = `nui://qb-inventory/web/public/images/${baseName}.png`;
+    } else if (!img.dataset.triedLegacyWebp) {
+        img.dataset.triedLegacyWebp = "1";
+        img.src = `nui://qb-inventory/web/public/images/${baseName}.webp`;
+    } else {
+        img.onerror = null;
+        img.src = `images/default.png`;
+    }
+};
+let selectedSlot = null; // { item, slotNumber, invType }
+let activeTab = "inventory";
+let currentTheme = localStorage.getItem("qb_theme") || "dark-glass";
+
+const CraftingRecipes = [
+    { id: 'bandage', label: 'Venda Médica', img: 'bandage.png', amount: 2, reqs: [{ item: 'cloth', count: 2, label: 'Tela' }] },
+    { id: 'medkit', label: 'Botiquín de Primeros Auxilios', img: 'medkit.png', amount: 1, reqs: [{ item: 'bandage', count: 2, label: 'Venda Médica' }, { item: 'alcohol', count: 1, label: 'Alcohol' }] },
+    { id: 'ammo-9', label: 'Caja de Munición 9mm', img: 'pistol_ammo.png', amount: 1, reqs: [{ item: 'metalscrap', count: 3, label: 'Chatarra' }, { item: 'gunpowder', count: 2, label: 'Pólvora' }] },
+    { id: 'repairkit', label: 'Kit de Reparación Mecánico', img: 'repairkit.png', amount: 1, reqs: [{ item: 'iron', count: 4, label: 'Hierro' }, { item: 'steel', count: 2, label: 'Acero' }] },
+    { id: 'lockpick', label: 'Ganzúa Básica', img: 'lockpick.png', amount: 1, reqs: [{ item: 'metalscrap', count: 2, label: 'Chatarra' }] },
+    { id: 'armor', label: 'Chaleco Antibalas Táctico', img: 'armor.png', amount: 1, reqs: [{ item: 'kevlar', count: 5, label: 'Kevlar' }, { item: 'steel', count: 3, label: 'Acero' }] }
+];
+
+// Initialize Theme
+document.body.setAttribute("data-theme", currentTheme);
+
+document.addEventListener("DOMContentLoaded", () => {
+    setupTabNavigation();
+    setupThemeSelector();
+    setupActionButtons();
+    setupClothingToggles();
+    setupAdminPanel();
+    setupModalHandlers();
+    renderCraftingRecipes();
+
+    // Set initial theme card active state
+    document.querySelectorAll(".theme-card").forEach(card => {
+        if (card.dataset.themeName === currentTheme) {
+            card.classList.add("active");
+        } else {
+            card.classList.remove("active");
+        }
+    });
+});
+
+/* NUI EVENT LISTENER */
+window.addEventListener("message", (event) => {
+    const action = event.data.action;
+
+    if (action === "open" || action === "openInventory" || action === "setItems") {
+        document.getElementById("app").classList.remove("hidden");
+        
+        if (event.data.payload || event.data.inventory) {
+            playerData.inventory = event.data.payload || event.data.inventory || {};
+        }
+        
+        if (event.data.maxWeight) {
+            let mw = tonumberOr(event.data.maxWeight, 120);
+            playerData.maxWeight = mw > 1000 ? mw : mw * 1000;
+        }
+        
+        playerData.currentWeight = event.data.weight || calculateWeight(playerData.inventory);
+
+        if (event.data.otherInventory) {
+            otherData = event.data.otherInventory;
+            document.getElementById("other-inventory-title").innerHTML = `<i class="fa-solid fa-box-open"></i> ${otherData.name || 'Entorno'}`;
+        } else if (!otherData.id) {
+            otherData = { id: null, name: "Suelo", inventory: {}, maxSlots: 40, invType: "drop" };
+            document.getElementById("other-inventory-title").innerHTML = `<i class="fa-solid fa-cloud-arrow-down"></i> Suelo / Drops`;
+        }
+
+        if (event.data.isAdmin !== undefined) {
+            window.isPlayerAdmin = event.data.isAdmin;
+        }
+        if (window.isPlayerAdmin) {
+            document.getElementById("admin-nav-btn").classList.remove("hidden");
+        }
+
+        updateWeightBar();
+        renderAllGrids();
+        switchTab("inventory");
+    } else if (action === "openContainer") {
+        document.getElementById("app").classList.remove("hidden");
+        otherData = {
+            id: event.data.containerId,
+            name: event.data.title || "Contenedor",
+            inventory: event.data.items || {},
+            maxSlots: 40,
+            invType: event.data.invType || "container"
+        };
+        document.getElementById("other-inventory-title").innerHTML = `<i class="fa-solid fa-box-open"></i> ${otherData.name}`;
+        renderAllGrids();
+        switchTab("inventory");
+    } else if (action === "openAdminPanel") {
+        window.isPlayerAdmin = true;
+        document.getElementById("app").classList.remove("hidden");
+        document.getElementById("admin-nav-btn").classList.remove("hidden");
+        if (!playerData.inventory) playerData.inventory = {};
+        updateWeightBar();
+        renderAllGrids();
+        populateAdminUI(event.data.players, event.data.items);
+        switchTab("admin");
+    } else if (action === "close" || action === "closeInventory") {
+        closeInventorySilently();
+    } else if (action === "updateInventory") {
+        if (event.data.inventory) playerData.inventory = event.data.inventory;
+        playerData.currentWeight = event.data.weight || calculateWeight(playerData.inventory);
+        if (event.data.otherInventory) otherData = event.data.otherInventory;
+        updateWeightBar();
+        renderAllGrids();
+    }
+});
+
+function tonumberOr(val, fallback) {
+    const n = Number(val);
+    return isNaN(n) ? fallback : n;
+}
+
+function postNUI(endpoint, data = {}) {
+    const resName = (typeof GetParentResourceName === "function") ? GetParentResourceName() : (window.GetParentResourceName ? window.GetParentResourceName() : "qb-inventory");
+    return fetch(`https://${resName}/${endpoint}`, {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json; charset=UTF-8"
+        },
+        body: JSON.stringify(data)
+    }).then(res => res.json()).catch(err => console.error("Error sending postNUI:", endpoint, err));
+}
+
+/* CLOSE INVENTORY */
+function closeInventory() {
+    closeInventorySilently();
+    postNUI("close", {});
+}
+
+function closeInventorySilently() {
+    document.getElementById("app").classList.add("hidden");
+    closeModal("weapon-modal");
+    closeModal("give-modal");
+    selectedSlot = null;
+    otherData = { id: null, name: "Suelo", inventory: {}, maxSlots: 40, invType: "drop" };
+}
+
+document.getElementById("close-inv-btn").addEventListener("click", closeInventory);
+document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape" || e.key === "Tab") {
+        if (!document.getElementById("app").classList.contains("hidden")) {
+            closeInventory();
+        }
+    }
+});
+
+/* WEIGHT CALCULATION */
+function calculateWeight(inv) {
+    let weight = 0;
+    Object.values(inv).forEach(item => {
+        if (item) {
+            let itemWeight = Number(item.weight);
+            if (isNaN(itemWeight) || itemWeight < 0) itemWeight = 100;
+            weight += itemWeight * (Number(item.amount) || 1);
+        }
+    });
+    return weight;
+}
+
+function updateWeightBar() {
+    const currentKg = (playerData.currentWeight / 1000).toFixed(1);
+    const maxKg = (playerData.maxWeight / 1000).toFixed(1);
+    const percentage = Math.min(100, Math.round((playerData.currentWeight / playerData.maxWeight) * 100));
+
+    document.getElementById("weight-text").innerText = `${currentKg} / ${maxKg} kg`;
+    document.getElementById("weight-bar-fill").style.width = `${percentage}%`;
+}
+
+/* RENDERING GRIDS (HOTBAR + MAIN + OTHER) */
+function renderAllGrids() {
+    renderHotbar();
+    renderPlayerGrid();
+    renderOtherGrid();
+    renderCraftingRecipes();
+    highlightSelectedSlot();
+
+    const otherCol = document.getElementById("other-inventory-column");
+    const wrapper = document.querySelector(".main-grids-wrapper");
+    if (otherCol && wrapper) {
+        const hasOtherItems = otherData && otherData.inventory && Object.keys(otherData.inventory).length > 0;
+        if (!otherData.id && !hasOtherItems) {
+            otherCol.style.display = "none";
+            wrapper.classList.add("single-grid");
+        } else {
+            otherCol.style.display = "flex";
+            wrapper.classList.remove("single-grid");
+        }
+    }
+}
+
+function renderHotbar() {
+    const hotbarGrid = document.getElementById("hotbar-grid");
+    hotbarGrid.innerHTML = "";
+
+    for (let slot = 1; slot <= 5; slot++) {
+        const item = getItemInSlot(playerData.inventory, slot);
+        hotbarGrid.appendChild(createSlotElement(slot, item, "player"));
+    }
+}
+
+function renderPlayerGrid() {
+    const playerGrid = document.getElementById("player-inventory-grid");
+    playerGrid.innerHTML = "";
+    const totalSlots = 35; // Slots 6 to 40
+
+    for (let slot = 6; slot <= totalSlots + 5; slot++) {
+        const item = getItemInSlot(playerData.inventory, slot);
+        playerGrid.appendChild(createSlotElement(slot, item, "player"));
+    }
+}
+
+function renderOtherGrid() {
+    const otherGrid = document.getElementById("other-inventory-grid");
+    otherGrid.innerHTML = "";
+    const totalSlots = otherData.maxSlots || 40;
+
+    for (let slot = 1; slot <= totalSlots; slot++) {
+        const item = getItemInSlot(otherData.inventory, slot);
+        otherGrid.appendChild(createSlotElement(slot, item, "other"));
+    }
+}
+
+function getItemInSlot(inv, slot) {
+    return Object.values(inv).find(i => i && Number(i.slot) === Number(slot)) || null;
+}
+
+/* SLOT ELEMENT CREATION */
+function createSlotElement(slotNumber, item, invType) {
+    const slotDiv = document.createElement("div");
+    slotDiv.className = "inv-slot";
+    slotDiv.dataset.slot = slotNumber;
+    slotDiv.dataset.invType = invType;
+
+    const slotNumSpan = document.createElement("span");
+    slotNumSpan.className = "slot-number";
+    slotNumSpan.style.pointerEvents = "none";
+    slotNumSpan.innerText = slotNumber;
+    slotDiv.appendChild(slotNumSpan);
+
+    if (item) {
+        slotDiv.dataset.itemName = item.name;
+        slotDiv.draggable = false;
+        slotDiv.addEventListener("mousedown", (e) => {
+            if (e.button === 0) {
+                window._dragState = { item, fromSlot: slotNumber, fromInv: invType, startX: e.clientX, startY: e.clientY, slotDiv, active: false };
+            }
+        });
+
+        const img = document.createElement("img");
+        img.className = "item-img";
+        img.draggable = false;
+        img.style.pointerEvents = "none";
+        const imgName = item.image || item.name + '.png';
+        const baseName = imgName.replace(/\.[^/.]+$/, "");
+        img.src = `images/${baseName}.png`;
+        img.onerror = function() {
+            if (!this.dataset.triedWebp) {
+                this.dataset.triedWebp = "1";
+                this.src = `images/${baseName}.webp`;
+            } else if (!this.dataset.triedPNG) {
+                this.dataset.triedPNG = "1";
+                this.src = `images/${baseName}.PNG`;
+            } else if (!this.dataset.triedLegacy) {
+                this.dataset.triedLegacy = "1";
+                this.src = `nui://qb-inventory/web/public/images/${baseName}.png`;
+            } else if (!this.dataset.triedLegacyWebp) {
+                this.dataset.triedLegacyWebp = "1";
+                this.src = `nui://qb-inventory/web/public/images/${baseName}.webp`;
+            } else {
+                this.onerror = null;
+                this.src = `images/default.png`;
+            }
+        };
+        slotDiv.appendChild(img);
+
+        if (item.amount > 1 || (otherData.invType === "shop" && item.price)) {
+            const badge = document.createElement("span");
+            badge.className = "item-count-badge";
+            badge.style.pointerEvents = "none";
+            if (otherData.invType === "shop" && invType === "other") {
+                badge.innerText = `$${item.price}`;
+                badge.style.background = "rgba(46, 204, 113, 0.8)";
+            } else {
+                badge.innerText = `x${formatNumber(item.amount)}`;
+            }
+            slotDiv.appendChild(badge);
+        }
+
+        const label = document.createElement("span");
+        label.className = "item-label";
+        label.style.pointerEvents = "none";
+        label.innerText = item.label || item.name;
+        slotDiv.appendChild(label);
+
+        // Click to Select
+        slotDiv.addEventListener("click", () => {
+            selectedSlot = { item, slotNumber, invType };
+            highlightSelectedSlot();
+        });
+
+        // Double Click
+        slotDiv.addEventListener("dblclick", () => {
+            if (otherData.invType === "shop" && invType === "other") {
+                const amount = Number(document.getElementById("item-amount").value) || 1;
+                postNUI("BuyItem", { shop: otherData.id, item: item, amount: amount });
+            } else if (item.type === "weapon" || (item.name && item.name.toLowerCase().startsWith("weapon_"))) {
+                openWeaponInspection(item);
+            } else if (invType === "player") {
+                useItem(item);
+            }
+        });
+
+        // Right Click Context Menu
+        slotDiv.addEventListener("contextmenu", (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            selectedSlot = { item, slotNumber, invType };
+            highlightSelectedSlot();
+            showContextMenu(e.pageX, e.pageY, item, invType);
+        });
+
+    }
+
+    slotDiv.addEventListener("dragenter", (e) => {
+        e.preventDefault();
+    });
+
+    slotDiv.addEventListener("dragover", (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        e.dataTransfer.dropEffect = "move";
+        if (!slotDiv.classList.contains("drag-over")) {
+            slotDiv.classList.add("drag-over");
+        }
+    });
+
+    slotDiv.addEventListener("dragleave", () => {
+        slotDiv.classList.remove("drag-over");
+    });
+
+    slotDiv.addEventListener("drop", (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        document.querySelectorAll(".inv-slot.drag-over").forEach(el => el.classList.remove("drag-over"));
+        if (!draggedItem) {
+            try {
+                const dt = e.dataTransfer.getData("text/plain");
+                if (dt) draggedItem = JSON.parse(dt);
+            } catch (err) {}
+        }
+        if (!draggedItem) return;
+
+        const targetSlot = Number(slotNumber);
+        const fromSlot = Number(draggedItem.fromSlot);
+        const targetInv = invType;
+        const amountElem = document.getElementById("item-amount");
+        const amount = (amountElem && Number(amountElem.value)) ? Number(amountElem.value) : Number(draggedItem.item.amount);
+
+        if (fromSlot === targetSlot && draggedItem.fromInv === targetInv) return;
+
+        moveItem(fromSlot, targetSlot, draggedItem.fromInv, targetInv, amount, draggedItem.item);
+        draggedItem = null;
+    });
+
+    return slotDiv;
+}
+
+function highlightSelectedSlot() {
+    document.querySelectorAll(".inv-slot").forEach(el => {
+        el.style.borderColor = "";
+        el.style.boxShadow = "";
+    });
+    if (selectedSlot) {
+        const el = document.querySelector(`.inv-slot[data-slot="${selectedSlot.slotNumber}"][data-inv-type="${selectedSlot.invType}"]`);
+        if (el) {
+            el.style.borderColor = "#ffaa00";
+            el.style.boxShadow = "0 0 10px rgba(255, 170, 0, 0.4)";
+        }
+    }
+}
+
+function formatNumber(num) {
+    return num >= 1000 ? (num / 1000).toFixed(1) + 'k' : num;
+}
+
+/* ACTIONS */
+function useItem(item) {
+    postNUI("UseItem", { inventory: "player", item: item, slot: item.slot });
+}
+
+function moveItem(fromSlot, toSlot, fromInv, toInv, amount, item) {
+    if (fromInv === "other" && otherData.invType === "shop") {
+        postNUI("BuyItem", { shop: otherData.id, item: item, amount: amount });
+        return;
+    }
+
+    if (fromInv === "player" && toInv === "player") {
+        postNUI("SetItemSlot", { item: item, fromSlot: fromSlot, toSlot: toSlot, amount: amount });
+    } else if (fromInv === "other" && toInv === "player") {
+        postNUI("TakeFromSecondary", { containerId: otherData.id, invType: otherData.invType, item: item, toSlot: toSlot, amount: amount });
+    } else if (fromInv === "player" && toInv === "other") {
+        if (!otherData.id) {
+            postNUI("DropItem", { item: item, amount: amount });
+        } else {
+            postNUI("PutInSecondary", { containerId: otherData.id, invType: otherData.invType, item: item, toSlot: toSlot, amount: amount });
+        }
+    } else if (fromInv === "other" && toInv === "other") {
+        if (otherData.id) {
+            postNUI("MoveInSecondary", { containerId: otherData.id, invType: otherData.invType, item: item, fromSlot: fromSlot, toSlot: toSlot });
+        }
+    }
+}
+
+function setupActionButtons() {
+    document.getElementById("btn-use").addEventListener("click", () => {
+        if (selectedSlot && selectedSlot.invType === "player") {
+            useItem(selectedSlot.item);
+        }
+    });
+
+    document.getElementById("btn-drop").addEventListener("click", () => {
+        if (selectedSlot && selectedSlot.invType === "player") {
+            const amount = Number(document.getElementById("item-amount").value) || selectedSlot.item.amount;
+            postNUI("DropItem", { item: selectedSlot.item, amount: amount });
+            selectedSlot = null;
+        }
+    });
+
+    document.getElementById("btn-split").addEventListener("click", () => {
+        if (selectedSlot && selectedSlot.invType === "player") {
+            const inputVal = Number(document.getElementById("item-amount").value);
+            const amount = (inputVal > 0) ? inputVal : Math.max(1, Math.floor(selectedSlot.item.amount / 2));
+            postNUI("SplitItem", { item: selectedSlot.item, amount: amount });
+            selectedSlot = null;
+        }
+    });
+
+    document.getElementById("btn-give").addEventListener("click", () => {
+        if (selectedSlot && selectedSlot.invType === "player") {
+            openModal("give-modal");
+        }
+    });
+}
+
+/* CRAFTING RECIPES RENDER */
+function canCraftRecipe(rec) {
+    if (!playerData || !playerData.inventory) return false;
+    const invItems = Object.values(playerData.inventory);
+    for (let req of (rec.reqs || [])) {
+        let reqName = req.item;
+        let reqCount = req.count;
+        let foundAmount = 0;
+        for (let item of invItems) {
+            if (item && item.name === reqName) {
+                foundAmount += (Number(item.amount) || 1);
+            }
+        }
+        if (foundAmount < reqCount) return false;
+    }
+    return true;
+}
+
+function renderCraftingRecipes() {
+    const list = document.getElementById("recipes-list");
+    if (!list) return;
+    list.innerHTML = "";
+
+    CraftingRecipes.forEach(rec => {
+        const canCraft = canCraftRecipe(rec);
+        const dotColor = canCraft ? "#4cd137" : "#555555";
+        const dotShadow = canCraft ? "0 0 8px #4cd137" : "none";
+
+        const row = document.createElement("div");
+        row.className = "recipe-item";
+        row.style.cssText = "display: flex; align-items: center; justify-content: space-between; padding: 10px; background: rgba(255,255,255,0.03); border-radius: 8px; cursor: pointer; margin-bottom: 8px; border: 1px solid rgba(255,255,255,0.05); transition: 0.2s;";
+        row.innerHTML = `
+            <div style="display: flex; align-items: center; gap: 12px;">
+                <img src="images/${rec.img.replace(/\.[^/.]+$/, '')}.png" onerror="window.handleImgError(this, '${rec.img}')" style="width: 36px; height: 36px; object-fit: contain;">
+                <div>
+                    <h4 style="font-size: 14px; margin: 0; color: #fff;">${rec.label}</h4>
+                    <span style="font-size: 12px; color: #aaa;">Produce x${rec.amount}</span>
+                </div>
+            </div>
+            <div style="width: 14px; height: 14px; border-radius: 50%; background: ${dotColor}; box-shadow: ${dotShadow}; margin-right: 8px;" title="${canCraft ? 'Materiales suficientes' : 'Faltan materiales'}"></div>
+        `;
+
+        row.addEventListener("mouseenter", () => row.style.background = "rgba(255,255,255,0.08)");
+        row.addEventListener("mouseleave", () => row.style.background = "rgba(255,255,255,0.03)");
+        row.addEventListener("click", () => selectRecipe(rec));
+        list.appendChild(row);
+    });
+}
+
+function selectRecipe(rec) {
+    const details = document.getElementById("recipe-details");
+    let reqHtml = rec.reqs.map(r => `
+        <div style="display: flex; justify-content: space-between; padding: 8px; background: rgba(0,0,0,0.3); border-radius: 6px; margin-bottom: 6px;">
+            <span>${r.label || r.item}</span>
+            <strong style="color: #ffaa00;">x${r.count}</strong>
+        </div>
+    `).join('');
+
+    details.innerHTML = `
+        <div style="text-align: center; margin-bottom: 20px;">
+            <img src="images/${rec.img.replace(/\.[^/.]+$/, '')}.png" onerror="window.handleImgError(this, '${rec.img}')" style="width: 80px; height: 80px; object-fit: contain;">
+            <h3 style="margin: 10px 0 5px 0;">${rec.label}</h3>
+            <span style="color: #4cd137; font-size: 13px;">Cantidad producida: x${rec.amount}</span>
+        </div>
+        <h4 style="margin-bottom: 10px; font-size: 14px; color: #ccc;">Materiales Requeridos:</h4>
+        <div style="margin-bottom: 20px;">${reqHtml}</div>
+        <button id="craft-now-btn" class="action-btn use-btn" style="width: 100%; padding: 12px; font-size: 15px;"><i class="fa-solid fa-hammer"></i> Fabricar Ahora</button>
+    `;
+
+    document.getElementById("craft-now-btn").addEventListener("click", () => {
+        postNUI("craftItem", { item: rec.id, count: 1 });
+    });
+}
+
+/* NAVIGATION TABS */
+function setupTabNavigation() {
+    document.querySelectorAll(".nav-btn").forEach(btn => {
+        btn.addEventListener("click", () => {
+            switchTab(btn.dataset.tab);
+        });
+    });
+}
+
+function switchTab(tabId) {
+    document.querySelectorAll(".tab-content").forEach(t => t.classList.remove("active"));
+    document.querySelectorAll(".nav-btn").forEach(b => b.classList.remove("active"));
+    
+    const targetTab = document.getElementById(`tab-${tabId}`);
+    if (targetTab) targetTab.classList.add("active");
+    
+    const targetBtn = document.querySelector(`.nav-btn[data-tab="${tabId}"]`);
+    if (targetBtn) targetBtn.classList.add("active");
+    
+    const app = document.getElementById("app");
+    if (tabId === "clothing") {
+        app.classList.add("side-mode");
+    } else {
+        app.classList.remove("side-mode");
+    }
+
+    if (tabId === "admin" && !window._adminLoaded && window.isPlayerAdmin) {
+        postNUI("GetAdminData", {}).then(data => {
+            if (data && data.players) populateAdminUI(data.players, data.items);
+        }).catch(() => {});
+    }
+    
+    activeTab = tabId;
+}
+
+/* THEMES SELECTOR */
+function setupThemeSelector() {
+    document.querySelectorAll(".theme-card").forEach(card => {
+        card.addEventListener("click", () => {
+            const themeName = card.dataset.themeName;
+            document.body.setAttribute("data-theme", themeName);
+            localStorage.setItem("qb_theme", themeName);
+
+            document.querySelectorAll(".theme-card").forEach(c => c.classList.remove("active"));
+            card.classList.add("active");
+        });
+    });
+}
+
+/* CLOTHING TOGGLES */
+function setupClothingToggles() {
+    document.querySelectorAll(".clothing-btn").forEach(btn => {
+        btn.addEventListener("click", () => {
+            const type = btn.dataset.clothing;
+            postNUI("toggleClothing", { type: type, slot: type });
+        });
+    });
+}
+
+/* WEAPON INSPECTION MODAL */
+function openWeaponInspection(weapon) {
+    document.getElementById("weapon-inspect-title").innerHTML = `<i class="fa-solid fa-crosshairs"></i> ${weapon.label}`;
+    const wImg = document.getElementById("weapon-inspect-img");
+    wImg.dataset.triedWebp = ""; wImg.dataset.triedPNG = ""; wImg.dataset.triedLegacy = ""; wImg.dataset.triedLegacyWebp = "";
+    window.handleImgError(wImg, weapon.image || weapon.name);
+    document.getElementById("weapon-ammo-count").innerText = `${weapon.info?.ammo || 0} disparos`;
+
+    const attachList = document.getElementById("attachments-list");
+    attachList.innerHTML = "";
+
+    const availableAttach = [
+        { id: "suppressor", label: "Silenciador", icon: "fa-volume-xmark" },
+        { id: "flashlight", label: "Linterna Táctica", icon: "fa-lightbulb" },
+        { id: "scope", label: "Mira Telescópica", icon: "fa-crosshairs" },
+        { id: "clip", label: "Cargador Ampliado", icon: "fa-bars-staggered" }
+    ];
+
+    availableAttach.forEach(att => {
+        const attachments = Array.isArray(weapon.info?.attachments) ? weapon.info.attachments : Object.values(weapon.info?.attachments || {});
+        const hasAttach = attachments.some(a => {
+            if (!a) return false;
+            const comp = (typeof a === 'string' ? a : (a.component || a.item || a.label || '')).toLowerCase();
+            if (att.id === 'suppressor' && (comp === 'suppressor' || comp.includes('supp') || comp.includes('silenc'))) return true;
+            if (att.id === 'flashlight' && (comp === 'flashlight' || comp.includes('flsh') || comp.includes('flash') || comp.includes('lintern'))) return true;
+            if (att.id === 'scope' && (comp === 'scope' || comp.includes('scope') || comp.includes('mira'))) return true;
+            if (att.id === 'clip' && (comp === 'clip' || comp.includes('clip') || comp.includes('mag') || comp.includes('cargad'))) return true;
+            return false;
+        });
+        const row = document.createElement("div");
+        row.className = "attachment-row";
+        row.innerHTML = `
+            <span><i class="fa-solid ${att.icon}"></i> ${att.label}</span>
+            <button class="action-btn ${hasAttach ? 'drop-btn' : 'give-btn'}" style="padding: 6px 12px; font-size: 12px;">
+                ${hasAttach ? 'Desacoplar' : 'Acoplar'}
+            </button>
+        `;
+        row.querySelector("button").addEventListener("click", (e) => {
+            e.stopPropagation();
+            postNUI("modifyWeapon", {
+                weaponName: weapon.name,
+                componentName: att.id,
+                install: !hasAttach,
+                slot: weapon.slot
+            });
+            closeModal("weapon-modal");
+        });
+        attachList.appendChild(row);
+    });
+
+    openModal("weapon-modal");
+}
+
+function openModal(id) {
+    const modal = document.getElementById(id);
+    if (modal) {
+        modal.classList.remove("hidden");
+        const invContainer = document.querySelector(".inventory-container");
+        if (invContainer) invContainer.style.pointerEvents = "none";
+    }
+}
+
+function closeModal(id) {
+    const modal = document.getElementById(id);
+    if (modal) {
+        modal.classList.add("hidden");
+        setTimeout(() => {
+            const wModal = document.getElementById("weapon-modal");
+            const gModal = document.getElementById("give-modal");
+            if ((!wModal || wModal.classList.contains("hidden")) && (!gModal || gModal.classList.contains("hidden"))) {
+                const invContainer = document.querySelector(".inventory-container");
+                if (invContainer) invContainer.style.pointerEvents = "auto";
+            }
+        }, 50);
+    }
+}
+
+function setupModalHandlers() {
+    document.querySelectorAll(".modal-overlay").forEach(overlay => {
+        overlay.addEventListener("click", (e) => {
+            if (e.target === overlay) closeModal(overlay.id);
+            e.stopPropagation();
+        });
+        overlay.addEventListener("mousedown", (e) => e.stopPropagation());
+        overlay.addEventListener("mouseup", (e) => e.stopPropagation());
+    });
+
+    document.querySelectorAll(".modal-box").forEach(box => {
+        box.addEventListener("click", (e) => e.stopPropagation());
+        box.addEventListener("mousedown", (e) => e.stopPropagation());
+        box.addEventListener("mouseup", (e) => e.stopPropagation());
+    });
+
+    document.getElementById("close-weapon-modal").addEventListener("click", (e) => {
+        e.stopPropagation();
+        closeModal("weapon-modal");
+    });
+
+    document.getElementById("close-give-modal").addEventListener("click", (e) => {
+        e.stopPropagation();
+        closeModal("give-modal");
+    });
+
+    document.getElementById("confirm-give-btn").addEventListener("click", (e) => {
+        e.stopPropagation();
+        if (selectedSlot && selectedSlot.invType === "player") {
+            const targetId = document.getElementById("give-target-id").value;
+            const amount = Number(document.getElementById("item-amount").value) || selectedSlot.item.amount;
+            if (targetId) {
+                postNUI("GiveItem", { targetId: targetId, item: selectedSlot.item, amount: amount });
+                closeModal("give-modal");
+                selectedSlot = null;
+            }
+        }
+    });
+
+    document.addEventListener("click", () => {
+        const ctxMenu = document.getElementById("item-context-menu");
+        if (ctxMenu) ctxMenu.classList.add("hidden");
+    });
+
+    document.getElementById("ctx-use").addEventListener("click", () => {
+        if (selectedSlot) {
+            if (selectedSlot.invType === "other" && otherData.invType === "shop") {
+                const amount = Number(document.getElementById("item-amount").value) || 1;
+                postNUI("BuyItem", { shop: otherData.id, item: selectedSlot.item, amount: amount });
+            } else if (selectedSlot.invType === "player") {
+                useItem(selectedSlot.item);
+            }
+        }
+    });
+
+    document.getElementById("ctx-give").addEventListener("click", (e) => {
+        e.stopPropagation();
+        if (selectedSlot && selectedSlot.invType === "player") {
+            openModal("give-modal");
+        }
+    });
+
+    document.getElementById("ctx-split").addEventListener("click", () => {
+        if (selectedSlot && selectedSlot.invType === "player") {
+            const inputVal = Number(document.getElementById("item-amount").value);
+            const amount = (inputVal > 0) ? inputVal : Math.max(1, Math.floor(selectedSlot.item.amount / 2));
+            postNUI("SplitItem", { item: selectedSlot.item, amount: amount });
+        }
+    });
+
+    document.getElementById("ctx-drop").addEventListener("click", () => {
+        if (selectedSlot && selectedSlot.invType === "player") {
+            const amount = Number(document.getElementById("item-amount").value) || selectedSlot.item.amount;
+            postNUI("DropItem", { item: selectedSlot.item, amount: amount });
+        }
+    });
+
+    document.getElementById("ctx-inspect").addEventListener("click", () => {
+        if (selectedSlot && selectedSlot.item) {
+            openWeaponInspection(selectedSlot.item);
+        }
+    });
+}
+
+/* CONTEXT MENU */
+function showContextMenu(x, y, item, invType) {
+    const ctxMenu = document.getElementById("item-context-menu");
+    if (!ctxMenu) return;
+
+    const inspectBtn = document.getElementById("ctx-inspect");
+    if (item.type === "weapon" || (item.name && item.name.toLowerCase().startsWith("weapon_"))) {
+        inspectBtn.classList.remove("hidden");
+    } else {
+        inspectBtn.classList.add("hidden");
+    }
+
+    ctxMenu.style.left = `${x}px`;
+    ctxMenu.style.top = `${y}px`;
+    ctxMenu.classList.remove("hidden");
+}
+
+/* ADMIN PANEL */
+function populateAdminUI(players, items) {
+    window._adminLoaded = true;
+    const playerSelect = document.getElementById("admin-target-player");
+    if (playerSelect && players) {
+        playerSelect.innerHTML = '<option value="">Mi inventario (Propio)</option>';
+        const playersArray = Array.isArray(players) ? players : Object.values(players || {});
+        playersArray.forEach(p => {
+            if (!p) return;
+            const opt = document.createElement("option");
+            opt.value = p.id;
+            opt.innerText = `[ID: ${p.id}] ${p.name}`;
+            playerSelect.appendChild(opt);
+        });
+    }
+
+    const itemsList = document.getElementById("admin-items-list");
+    if (itemsList && items) {
+        const itemsArray = Array.isArray(items) ? items : Object.values(items || {});
+        window._allAdminItems = itemsArray;
+        renderAdminItemsList(itemsArray);
+    }
+}
+
+function renderAdminItemsList(items) {
+    const itemsList = document.getElementById("admin-items-list");
+    if (!itemsList) return;
+    itemsList.innerHTML = "";
+    const itemsArray = Array.isArray(items) ? items : Object.values(items || {});
+    itemsArray.forEach(item => {
+        if (!item) return;
+        const card = document.createElement("div");
+        card.className = "admin-item-card";
+        const imgName = item.image || item.name + '.png';
+        const baseName = imgName.replace(/\.[^/.]+$/, "");
+        card.innerHTML = `<img src="images/${baseName}.png" onerror="handleImgError(this, '${item.name}')"><span>${item.label || item.name}</span>`;
+        card.addEventListener("click", () => {
+            document.querySelectorAll(".admin-item-card").forEach(c => c.classList.remove("selected"));
+            card.classList.add("selected");
+            const nameInput = document.getElementById("admin-item-name");
+            if (nameInput) nameInput.value = item.name;
+        });
+        itemsList.appendChild(card);
+    });
+}
+
+function setupAdminPanel() {
+    const searchInput = document.getElementById("admin-item-search");
+    if (searchInput) {
+        searchInput.addEventListener("input", (e) => {
+            const q = e.target.value.toLowerCase();
+            if (!window._allAdminItems) return;
+            const filtered = window._allAdminItems.filter(i => i && ((i.name && i.name.toLowerCase().includes(q)) || (i.label && i.label.toLowerCase().includes(q))));
+            renderAdminItemsList(filtered);
+        });
+    }
+
+    const spawnBtn = document.getElementById("admin-spawn-btn");
+    if (spawnBtn) {
+        spawnBtn.addEventListener("click", () => {
+            const item = document.getElementById("admin-item-name").value;
+            const amount = document.getElementById("admin-item-amount").value || 1;
+            const targetId = document.getElementById("admin-target-player").value || 0;
+            if (item) {
+                postNUI("AdminGiveItem", { itemName: item, amount: Number(amount), targetId: Number(targetId) });
+            }
+        });
+    }
+
+    const clearBtn = document.getElementById("admin-clear-inv-btn");
+    if (clearBtn) {
+        clearBtn.addEventListener("click", () => {
+            const targetId = document.getElementById("admin-target-player").value || 0;
+            postNUI("AdminClearInventory", { targetId: Number(targetId) });
+        });
+    }
+}

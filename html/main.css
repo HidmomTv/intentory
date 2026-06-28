@@ -381,6 +381,7 @@ div {
 }
 
 .context-menu {
+    pointer-events: auto;
     position: absolute;
     font-size: 1vh;
     background-color: var(--surface-container-high);

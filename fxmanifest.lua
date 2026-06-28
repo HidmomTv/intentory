@@ -1,16 +1,23 @@
 fx_version 'cerulean'
 game 'gta5'
 
-author 'Antigravity'
-description 'Universal Tetris Inventory'
+author 'HidmomTv'
+description 'qb-inventory custom — by HidmomTv (https://github.com/HidmomTv)'
+version '2.0.0'
 provide 'qb-inventory'
+repository 'https://github.com/HidmomTv/intentory'
 
 export 'HasItem'
+export 'OpenTrunk'
+export 'OpenGlovebox'
+export 'OpenStash'
+export 'OpenShop'
+export 'CreateShop'
+export 'SyncPlayerUI'
 
 shared_scripts {
     '@oxmysql/lib/MySQL.lua',
-    'shared/config.lua',
-    'shared/dimensions.lua'
+    'config/config.lua'
 }
 
 client_scripts {
@@ -25,20 +32,21 @@ client_scripts {
 
 server_scripts {
     'server/main.lua',
+    'server/functions.lua',
     'server/items.lua',
     'server/commands.lua'
 }
 
-ui_page 'web/dist/index.html'
+ui_page 'html/index.html'
 
 files {
-    'web/dist/index.html',
-    'web/dist/assets/*.js',
-    'web/dist/assets/*.css',
-    'web/dist/assets/*.png',
-    'web/dist/assets/*.svg',
-    'web/dist/images/*.png',
-    'web/dist/images/*.jpg'
+    'html/index.html',
+    'html/style.css',
+    'html/app.js',
+    'html/images/*.png',
+    'html/images/*.PNG',
+    'html/images/*.jpg',
+    'html/images/*.webp'
 }
 
 lua54 'yes'

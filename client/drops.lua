@@ -86,24 +86,6 @@ RegisterNetEvent('qb-inventory:client:setupDropTarget', function(dropId)
     })
 end)
 
--- NUI Callbacks
-
-RegisterNUICallback('DropItem', function(item, cb)
-    QBCore.Functions.TriggerCallback('qb-inventory:server:createDrop', function(dropId)
-        if dropId then
-            while not NetworkDoesNetworkIdExist(dropId) do Wait(10) end
-            local bag = NetworkGetEntityFromNetworkId(dropId)
-            SetModelAsNoLongerNeeded(bag)
-            PlaceObjectOnGroundProperly(bag)
-            FreezeEntityPosition(bag, true)
-            local newDropId = 'drop-' .. dropId
-            cb(newDropId)
-        else
-            cb(false)
-        end
-    end, item)
-end)
-
 -- Thread
 
 CreateThread(function()

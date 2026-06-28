@@ -26,3 +26,8 @@ RegisterNUICallback('checkCraftingEnvironment', function(data, cb)
         cb({ success = true }) -- No environment required
     end
 end)
+
+RegisterNUICallback('craftItem', function(data, cb)
+    TriggerServerEvent('qb-inventory:server:craftItem', data.item, data.count)
+    cb({ success = true })
+end)

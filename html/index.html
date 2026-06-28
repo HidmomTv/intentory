@@ -1,224 +1,253 @@
 <!DOCTYPE html>
-<html lang="en">
-    <head>
-        <meta charset="UTF-8" />
-        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-        <title>QB Inventory</title>
-        <link rel="stylesheet" href="main.css" />
-        <link rel="stylesheet" href="https://unpkg.com/floating-vue@5.2.2/dist/style.css" />
-        <script src="https://kit.fontawesome.com/d37231be1f.js" crossorigin="anonymous"></script>
-        <script src="https://cdn.jsdelivr.net/npm/vue@3/dist/vue.global.prod.js"></script>
-        <script src="https://cdn.jsdelivr.net/npm/@floating-ui/core@1.6.0"></script>
-        <script src="https://cdn.jsdelivr.net/npm/@floating-ui/dom@1.6.1"></script>
-        <script src="https://unpkg.com/floating-vue@5.2.2/dist/floating-vue.umd.js"></script>
-        <script src="https://cdnjs.cloudflare.com/ajax/libs/axios/1.6.2/axios.min.js"></script>
-        <script src="app.js" defer></script>
-    </head>
-    <body>
-        <div id="app">
-            <div class="inventory-container" v-if="isInventoryOpen" @mousemove="drag" @mouseup="endDrag" @mousedown="containerMouseDownAction">
-                <div class="inventory-section player-inventory-section" :class="{ 'centered-inventory-section': shouldCenterInventory }">
-                    <div class="inventory-header">
-                        <div class="labels-container">
-                            <div class="inventory-label">
-                                <p>{{ inventoryLabel }}</p>
-                            </div>
-                            <div class="current-weight">
-                                <p>{{ (playerWeight / 1000).toFixed(1) }} / {{ (maxWeight / 1000).toFixed(1) }}</p>
-                            </div>
-                        </div>
-                        <div class="weight-bar">
-                            <div class="weight-bar-fill" :style="{ width: Math.min((playerWeight / maxWeight) * 100, 100) + '%' }" :class="weightBarClass"></div>
-                        </div>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>QBCore Premium Inventory</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body data-theme="dark-glass">
+    <div id="app" class="hidden">
+        <div class="inventory-container">
+            <!-- Header & Navigation -->
+            <header class="inv-header">
+                <div class="player-info">
+                    <div class="avatar-box">
+                        <i class="fa-solid fa-user-shield"></i>
                     </div>
-                    <div class="inventory-grid">
-                        <div class="item-grid">
-                            <div v-for="slot in totalSlots" :key="slot" class="item-slot" :data-slot="slot" :class="{ 'invalid-slot-highlight': errorSlot === slot }" @dblclick="getItemInSlot(slot, 'player') && useItem(getItemInSlot(slot, 'player'))" @mousedown="event => handleMouseDown(event, slot, 'player')">
-                                <div class="item-slot-key" v-if="slot <= 5">
-                                    <p>{{ slot }}</p>
-                                </div>
-                                <div class="item-slot-img" v-if="getItemInSlot(slot, 'player')" v-tooltip.right-end="{content: generateTooltipContent(getItemInSlot(slot, 'player')), html: true}">
-                                    <img :src="'images/' + getItemInSlot(slot, 'player').image" alt="" />
-                                </div>
-                                <div class="item-slot-amount" v-if="getItemInSlot(slot, 'player')">
-                                    <p>x{{ getItemInSlot(slot, 'player').amount }}</p>
-                                </div>
-                                <div class="item-slot-durability" v-if="getItemInSlot(slot, 'player')">
-                                    <div
-                                        class="item-slot-durability-fill"
-                                        v-if="getItemInSlot(slot, 'player').info && 'quality' in getItemInSlot(slot, 'player').info"
-                                        :style="{ width: (getItemInSlot(slot, 'player').info.quality / 100) * 100 + '%' }"
-                                        :class="{
-                                            'high': getItemInSlot(slot, 'player').info.quality > 75,
-                                            'medium': getItemInSlot(slot, 'player').info.quality <= 75 && getItemInSlot(slot, 'player').info.quality > 25,
-                                            'low': getItemInSlot(slot, 'player').info.quality <= 25
-                                        }"
-                                    ></div>
-                                    <div class="item-slot-durability-fill" v-else style="width: 0%"></div>
-                                </div>
-                                <!-- <div class="item-slot-label" v-if="getItemInSlot(slot, 'player')">
-                                    <p>{{ getItemInSlot(slot, 'player').label }}</p>
-                                </div> -->
+                    <div class="details">
+                        <h2 id="player-name">Jugador</h2>
+                        <div class="weight-bar-container">
+                            <div class="weight-info">
+                                <span>Peso</span>
+                                <span id="weight-text">0.0 / 120.0 kg</span>
+                            </div>
+                            <div class="weight-bar-bg">
+                                <div id="weight-bar-fill" class="weight-bar-fill" style="width: 0%"></div>
                             </div>
                         </div>
                     </div>
                 </div>
 
-                <div class="input-container" v-if="!isOtherInventoryEmpty">
-                    <div class="input-wrapper">
-                        <input type="number" v-model="transferAmount" min="1" :placeholder="transferAmount === null ? 'amount' : ''" />
-                        <button @click="clearTransferAmount" class="clear-button">
-                            <i class="fas fa-times"></i>
-                        </button>
-                    </div>
+                <nav class="inv-nav">
+                    <button class="nav-btn active" data-tab="inventory"><i class="fa-solid fa-briefcase"></i> Inventario</button>
+                    <button class="nav-btn" data-tab="crafting"><i class="fa-solid fa-hammer"></i> Crafteo</button>
+                    <button class="nav-btn" data-tab="clothing"><i class="fa-solid fa-shirt"></i> Ropa</button>
+                    <button class="nav-btn" data-tab="themes"><i class="fa-solid fa-palette"></i> Temas</button>
+                    <button id="admin-nav-btn" class="nav-btn hidden" data-tab="admin"><i class="fa-solid fa-wand-magic-sparkles"></i> Admin</button>
+                </nav>
+
+                <button class="close-btn" id="close-inv-btn"><i class="fa-solid fa-xmark"></i></button>
+            </header>
+
+            <!-- TAB 1: INVENTORY MAIN VIEW -->
+            <section id="tab-inventory" class="tab-content active">
+                <!-- Hotbar (Slots 1-5) -->
+                <div class="hotbar-wrapper">
+                    <span class="section-label"><i class="fa-solid fa-bolt"></i> Acceso Rápido (1-5)</span>
+                    <div id="hotbar-grid" class="slots-grid hotbar-grid"></div>
                 </div>
 
-                <!-- Other Inventory Section -->
-                <div class="inventory-section other-inventory-section" v-if="!isOtherInventoryEmpty">
-                    <div class="inventory-header">
-                        <div class="labels-container">
-                            <div class="inventory-label">
-                                <p>{{ otherInventoryLabel }}</p>
+                <div class="main-grids-wrapper">
+                    <!-- Player Backpack Grid -->
+                    <div class="grid-column">
+                        <div class="grid-header">
+                            <h3><i class="fa-solid fa-backpack"></i> Mochila Principal</h3>
+                            <span class="slot-count" id="player-slot-count">35 slots</span>
+                        </div>
+                        <div id="player-inventory-grid" class="slots-grid main-grid"></div>
+                    </div>
+
+                    <!-- Center Action Controls -->
+                    <div class="center-controls">
+                        <div class="amount-control">
+                            <label for="item-amount">Cantidad</label>
+                            <input type="number" id="item-amount" placeholder="Todo" min="1" max="999999">
+                        </div>
+                        <button class="action-btn use-btn" id="btn-use" title="Usar ítem (Doble clic)"><i class="fa-solid fa-hand-pointer"></i> Usar</button>
+                        <button class="action-btn give-btn" id="btn-give" title="Dar a jugador cercano"><i class="fa-solid fa-gift"></i> Dar</button>
+                        <button class="action-btn drop-btn" id="btn-drop" title="Tirar al suelo"><i class="fa-solid fa-trash-can"></i> Tirar</button>
+                        <button class="action-btn" id="btn-split" style="background: rgba(255, 170, 0, 0.2); border-color: rgba(255, 170, 0, 0.4); color: #ffaa00;" title="Dividir stack"><i class="fa-solid fa-scissors"></i> Dividir</button>
+                    </div>
+
+                    <!-- Other Inventory Grid (Drop / Trunk / Stash) -->
+                    <div class="grid-column" id="other-inventory-column">
+                        <div class="grid-header">
+                            <h3 id="other-inventory-title"><i class="fa-solid fa-box-open"></i> Suelo / Entorno</h3>
+                            <span class="slot-count" id="other-slot-count">40 slots</span>
+                        </div>
+                        <div id="other-inventory-grid" class="slots-grid main-grid"></div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- TAB 2: CRAFTING VIEW -->
+            <section id="tab-crafting" class="tab-content">
+                <div class="crafting-layout">
+                    <div class="recipes-list-container">
+                        <h3>Recetas Disponibles</h3>
+                        <div id="recipes-list" class="recipes-list"></div>
+                    </div>
+                    <div class="recipe-details-container" id="recipe-details">
+                        <div class="empty-selection"><i class="fa-solid fa-hammer"></i> Selecciona una receta para craftear</div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- TAB 3: CLOTHING QUICK TOGGLES -->
+            <section id="tab-clothing" class="tab-content">
+                <div class="clothing-header">
+                    <h3><i class="fa-solid fa-tags"></i> Menú Rápido de Ropa</h3>
+                    <p>Quítate o ponte prendas rápidamente (Compatible con qb-clothing y qs-appearance)</p>
+                </div>
+                <div class="clothing-grid">
+                    <button class="clothing-btn" data-clothing="hat"><i class="fa-solid fa-hat-cowboy"></i> Sombrero / Gorra</button>
+                    <button class="clothing-btn" data-clothing="mask"><i class="fa-solid fa-mask"></i> Máscara</button>
+                    <button class="clothing-btn" data-clothing="glasses"><i class="fa-solid fa-glasses"></i> Gafas</button>
+                    <button class="clothing-btn" data-clothing="visor"><i class="fa-solid fa-eye"></i> Visera</button>
+                    <button class="clothing-btn" data-clothing="neck"><i class="fa-solid fa-user-tie"></i> Cadena / Cuello</button>
+                    <button class="clothing-btn" data-clothing="watch"><i class="fa-solid fa-clock"></i> Reloj</button>
+                    <button class="clothing-btn" data-clothing="bracelet"><i class="fa-solid fa-ring"></i> Pulsera</button>
+                    <button class="clothing-btn" data-clothing="top"><i class="fa-solid fa-shirt"></i> Camiseta / Chaqueta</button>
+                    <button class="clothing-btn" data-clothing="shirt"><i class="fa-solid fa-vest"></i> Camiseta Interior</button>
+                    <button class="clothing-btn" data-clothing="gloves"><i class="fa-solid fa-mitten"></i> Guantes / Brazos</button>
+                    <button class="clothing-btn" data-clothing="pants"><i class="fa-solid fa-socks"></i> Pantalones</button>
+                    <button class="clothing-btn" data-clothing="shoes"><i class="fa-solid fa-shoe-prints"></i> Zapatos</button>
+                    <button class="clothing-btn" data-clothing="vest"><i class="fa-solid fa-shield-halved"></i> Chaleco Antibalas</button>
+                    <button class="clothing-btn" data-clothing="bag"><i class="fa-solid fa-suitcase"></i> Mochila</button>
+                </div>
+            </section>
+
+            <!-- TAB 4: THEMES CUSTOMIZER -->
+            <section id="tab-themes" class="tab-content">
+                <div class="themes-header">
+                    <h3><i class="fa-solid fa-palette"></i> Personalización de Tema</h3>
+                    <p>Elige el estilo visual que mejor se adapte a tus gustos. Se guarda automáticamente.</p>
+                </div>
+                <div class="themes-grid">
+                    <div class="theme-card active" data-theme-name="dark-glass">
+                        <div class="theme-preview preview-dark-glass"></div>
+                        <h4>Glassmorphism Oscuro</h4>
+                        <span>Transparencias elegantes con desenfoque de fondo.</span>
+                    </div>
+                    <div class="theme-card" data-theme-name="cyberpunk">
+                        <div class="theme-preview preview-cyberpunk"></div>
+                        <h4>Cyberpunk Neón</h4>
+                        <span>Colores vibrantes en cian y magenta futurista.</span>
+                    </div>
+                    <div class="theme-card" data-theme-name="emerald">
+                        <div class="theme-preview preview-emerald"></div>
+                        <h4>Esmeralda Táctico</h4>
+                        <span>Tonos verdes oscuros estilo militar moderno.</span>
+                    </div>
+                    <div class="theme-card" data-theme-name="sapphire">
+                        <div class="theme-preview preview-sapphire"></div>
+                        <h4>Zafiro Limpio</h4>
+                        <span>Azul profundo con acabados metálicos pulidos.</span>
+                    </div>
+                </div>
+            </section>
+
+            <!-- TAB 5: ADMIN PANEL -->
+            <section id="tab-admin" class="tab-content">
+                <div class="admin-header">
+                    <h3><i class="fa-solid fa-wand-magic-sparkles"></i> Centro de Despacho y Moderación</h3>
+                    <p>Gestión avanzada en tiempo real para administradores.</p>
+                </div>
+                <div class="admin-grid-layout">
+                    <div class="admin-left-panel">
+                        <div class="admin-box">
+                            <h4><i class="fa-solid fa-user"></i> Jugador Objetivo</h4>
+                            <select id="admin-target-player" class="admin-select">
+                                <option value="">Mi inventario (Propio)</option>
+                            </select>
+                        </div>
+                        <div class="admin-box">
+                            <h4><i class="fa-solid fa-box-open"></i> Despachar Ítem</h4>
+                            <div class="selected-item-display">
+                                <input type="text" id="admin-item-name" placeholder="Selecciona un ítem de la lista..." readonly style="background: rgba(0,0,0,0.3); cursor: not-allowed;">
                             </div>
-                            <div class="current-weight">
-                                <p>{{ (otherInventoryWeight / 1000).toFixed(1) }} / {{(otherInventoryMaxWeight / 1000).toFixed(1) }}</p>
-                            </div>
+                            <label style="font-size: 13px; color: var(--text-secondary); margin-top: 8px;">Cantidad:</label>
+                            <input type="number" id="admin-item-amount" placeholder="Cantidad" value="1" min="1">
+                            <button id="admin-spawn-btn" class="action-btn give-btn" style="margin-top: 12px;"><i class="fa-solid fa-gift"></i> Enviar al Jugador</button>
                         </div>
-                        <div class="weight-bar">
-                            <div class="weight-bar-fill" :style="{ width: Math.min((otherInventoryWeight / otherInventoryMaxWeight) * 100, 100) + '%' }" :class="otherWeightBarClass"></div>
+                        <div class="admin-box" style="border-color: rgba(239, 68, 68, 0.4);">
+                            <h4><i class="fa-solid fa-triangle-exclamation" style="color: #ef4444;"></i> Zona de Peligro</h4>
+                            <button id="admin-clear-inv-btn" class="action-btn drop-btn" style="background: rgba(239, 68, 68, 0.2); border: 1px solid #ef4444;"><i class="fa-solid fa-dumpster"></i> Limpiar Inventario Objetivo</button>
                         </div>
                     </div>
-                    <div class="inventory-grid">
-                        <div class="item-grid">
-                            <div v-for="slot in otherInventorySlots" :key="slot" class="item-slot" :data-slot="slot" @mousedown="event => handleMouseDown(event, slot, 'other')" @dragover.prevent>
-                                <div class="item-slot-img" v-if="getItemInSlot(slot, 'other')" v-tooltip.right-end="{content: generateTooltipContent(getItemInSlot(slot, 'other')), html: true}">
-                                    <img :src="'images/' + getItemInSlot(slot, 'other').image" alt="" />
-                                </div>
-                                <div class="item-slot-amount" v-if="getItemInSlot(slot, 'other')">
-                                    <p>x{{ getItemInSlot(slot, 'other').amount }}</p>
-                                </div>
-                                <div v-if="isShopInventory && getItemInSlot(slot, 'other')" class="item-price">
-                                    <p>${{ getItemInSlot(slot, 'other').price }}</p>
-                                </div>
-                                <div class="item-slot-durability" v-if="getItemInSlot(slot, 'other')">
-                                    <div
-                                        class="item-slot-durability-fill"
-                                        v-if="getItemInSlot(slot, 'other').info && 'quality' in getItemInSlot(slot, 'other').info"
-                                        :style="{ width: (getItemInSlot(slot, 'other').info.quality / 100) * 100 + '%' }"
-                                        :class="{
-                                            'high': getItemInSlot(slot, 'other').info.quality > 75,
-                                            'medium': getItemInSlot(slot, 'other').info.quality <= 75 && getItemInSlot(slot, 'other').info.quality > 25,
-                                            'low': getItemInSlot(slot, 'other').info.quality <= 25
-                                        }"
-                                    ></div>
-                                    <div class="item-slot-durability-fill" v-else style="width: 0%"></div>
-                                </div>
-                                <!-- <div class="item-slot-label" v-if="getItemInSlot(slot, 'other')">
-                                    <p>{{ getItemInSlot(slot, 'other').label }}</p>
-                                </div> -->
+                    <div class="admin-right-panel">
+                        <div class="admin-box" style="height: 100%; display: flex; flex-direction: column;">
+                            <h4><i class="fa-solid fa-magnifying-glass"></i> Catálogo de Ítems QBCore</h4>
+                            <input type="text" id="admin-item-search" placeholder="Filtrar por nombre (ej: pistol, burger)..." style="margin-bottom: 12px;">
+                            <div id="admin-items-list" class="admin-items-container">
+                                <p style="color: var(--text-secondary); text-align: center; padding: 20px;">Cargando ítems...</p>
                             </div>
                         </div>
                     </div>
                 </div>
-            </div>
-            <div class="hotbar-container" v-if="showHotbar">
-                <div class="hotbar">
-                    <div v-for="slot in 5" :key="slot" class="item-slot">
-                        <div class="item-slot-key">
-                            <p>{{ slot }}</p>
-                        </div>
-                        <div class="item-slot-img" v-if="getHotbarItemInSlot(slot)">
-                            <img :src="'images/' + getHotbarItemInSlot(slot).image" alt="" />
-                        </div>
-                        <div class="item-slot-amount" v-if="getHotbarItemInSlot(slot)">
-                            <p>x{{ getHotbarItemInSlot(slot).amount }}</p>
-                        </div>
-                        <div class="item-slot-durability" v-if="getHotbarItemInSlot(slot)">
-                            <div
-                                class="item-slot-durability-fill"
-                                v-if="getHotbarItemInSlot(slot).info && 'quality' in getHotbarItemInSlot(slot).info"
-                                :style="{ width: (getHotbarItemInSlot(slot).info.quality / 100) * 100 + '%' }"
-                                :class="{
-                                     'high': getHotbarItemInSlot(slot).info.quality > 75,
-                                     'medium': getHotbarItemInSlot(slot).info.quality <= 75 && getHotbarItemInSlot(slot).info.quality > 25,
-                                     'low': getHotbarItemInSlot(slot).info.quality <= 25
-                                 }"
-                            ></div>
-                            <div class="item-slot-durability-fill" v-else style="width: 0%"></div>
-                        </div>
-                        <div class="item-slot-label" v-if="getHotbarItemInSlot(slot)">
-                            <p>{{ getHotbarItemInSlot(slot).label }}</p>
-                        </div>
-                    </div>
-                </div>
-            </div>
-            <div class="notification-container" v-if="showNotification">
-                <div class="notification-slot">
-                    <div class="notification-title">
-                        <p>{{ notificationType }}</p>
-                    </div>
-                    <div class="item-slot-img">
-                        <img :src="notificationImage" alt="" />
-                    </div>
-                    <div class="item-slot-amount">
-                        <p>x{{ notificationAmount }}</p>
-                    </div>
-                    <div class="item-slot-label">
-                        <p>{{ notificationText }}</p>
-                    </div>
-                </div>
-            </div>
-            <div class="required-item-container" v-if="showRequiredItems">
-                <div class="required-item">
-                    <div v-for="(item, index) in requiredItems" :key="index" class="item-slot">
-                        <div class="item-slot-img">
-                            <img :src="'images/' + item.image" alt="" />
-                        </div>
-                        <div class="item-slot-label">
-                            <p>{{ item.label }}</p>
-                        </div>
-                    </div>
-                </div>
-            </div>
-            <div class="weapon-attachments" v-if="showWeaponAttachments">
-                <img class="weapon" :src="'images/' + selectedWeapon.image" alt="" />
-                <div class="attachment-slot" v-for="(attachment, i) in selectedWeaponAttachments" :key="i" @click="removeAttachment(attachment)">
-                    <img :src="'images/' + attachment.attachment + '.png'" alt="" />
-                </div>
-            </div>
-            <div v-if="draggedItem" class="item-slot" :class="{ 'dragged-item': draggedItem }" :style="{ top: dragY + 'px', left: dragX + 'px' }">
-                <div class="item-slot-img">
-                    <img :src="'images/' + draggedItem.image" alt="" />
-                </div>
-                <div class="item-slot-amount">
-                    <p>x{{ draggedItem.amount }}</p>
-                </div>
-                <div class="item-slot-label">
-                    <p>{{ draggedItem.label }}</p>
-                </div>
-            </div>
-            <ul v-if="showContextMenu" class="context-menu" :style="{ top: contextMenuPosition.top, left: contextMenuPosition.left }">
-                <li v-if="contextMenuItem.useable" @click="useItem(contextMenuItem)">Use</li>
-                <li @mouseover="showSubmenu = true" @mouseleave="showSubmenu = false">
-                    Give
-                    <ul v-if="showSubmenu" class="submenu">
-                        <li @click="giveItem(contextMenuItem, 1)">Single</li>
-                        <li @click="giveItem(contextMenuItem, 'half')">Half</li>
-                        <li @click="giveItem(contextMenuItem, 'all')">All</li>
-                    </ul>
-                </li>
-                <li @mouseover="showSubmenu = true" @mouseleave="showSubmenu = false">
-                    Drop
-                    <ul v-if="showSubmenu" class="submenu">
-                        <li @click="dropItem(contextMenuItem, 1)">Single</li>
-                        <li @click="dropItem(contextMenuItem, 'half')">Half</li>
-                        <li @click="dropItem(contextMenuItem, 'all')">All</li>
-                    </ul>
-                </li>
-                <li @click="splitAndPlaceItem(contextMenuItem, 'player')">Split</li>
-                <li v-if="contextMenuItem.name.includes('weapon_')" @click="copySerial(contextMenuItem)">Copy Serial</li>
-                <li v-if="contextMenuItem.name.includes('weapon_')" @click="openWeaponAttachments(contextMenuItem)">Attachments</li>
-            </ul>
+            </section>
         </div>
-    </body>
+
+        <!-- MODAL: WEAPON INSPECTION -->
+        <div id="weapon-modal" class="modal-overlay hidden">
+            <div class="modal-box weapon-inspect-box">
+                <div class="modal-header">
+                    <h3 id="weapon-inspect-title"><i class="fa-solid fa-crosshairs"></i> Inspección de Arma</h3>
+                    <button class="close-modal-btn" id="close-weapon-modal"><i class="fa-solid fa-xmark"></i></button>
+                </div>
+                <div class="weapon-inspect-content">
+                    <div class="weapon-preview-area">
+                        <img id="weapon-inspect-img" src="" alt="Arma">
+                        <div class="weapon-stats">
+                            <div class="stat-row">
+                                <span>Munición:</span> <strong id="weapon-ammo-count">0 / 0</strong>
+                            </div>
+                            <div class="stat-row">
+                                <span>Daño:</span> <strong id="weapon-damage-stat">Normal</strong>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="weapon-attachments-area">
+                        <h4>Accesorios Acoplables</h4>
+                        <div id="attachments-list" class="attachments-list"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- MODAL: GIVE ITEM -->
+        <div id="give-modal" class="modal-overlay hidden">
+            <div class="modal-box" style="width: 320px; padding: 20px;">
+                <div class="modal-header">
+                    <h3><i class="fa-solid fa-gift"></i> Dar Ítem</h3>
+                    <button class="close-modal-btn" id="close-give-modal"><i class="fa-solid fa-xmark"></i></button>
+                </div>
+                <div style="margin-top: 15px; display: flex; flex-direction: column; gap: 10px;">
+                    <label style="font-size: 13px; color: #aaa;">ID del Jugador</label>
+                    <input type="number" id="give-target-id" placeholder="ID (ej: 1)" style="padding: 10px; border-radius: 6px; background: rgba(0,0,0,0.4); border: 1px solid rgba(255,255,255,0.1); color: #fff;">
+                    <button id="confirm-give-btn" class="action-btn give-btn" style="width: 100%; margin-top: 10px;"><i class="fa-solid fa-check"></i> Confirmar</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- NOTIFICATION TOOLTIP -->
+        <div id="hover-tooltip" class="hover-tooltip hidden"></div>
+
+        <!-- RIGHT CLICK CONTEXT MENU -->
+        <ul id="item-context-menu" class="context-menu hidden" style="position: absolute; z-index: 9999; border-radius: 8px; overflow: hidden; font-size: 14px;">
+            <li id="ctx-use"><i class="fa-solid fa-hand-pointer" style="margin-right: 8px; color: var(--accent-color);"></i> Usar / Comprar</li>
+            <li id="ctx-give"><i class="fa-solid fa-gift" style="margin-right: 8px; color: #a855f7;"></i> Dar</li>
+            <li id="ctx-split"><i class="fa-solid fa-scissors" style="margin-right: 8px; color: #ffaa00;"></i> Dividir Stack</li>
+            <li id="ctx-drop"><i class="fa-solid fa-trash-can" style="margin-right: 8px; color: #ef4444;"></i> Tirar al Suelo</li>
+            <li id="ctx-inspect" class="hidden"><i class="fa-solid fa-crosshairs" style="margin-right: 8px; color: #ef4444;"></i> Opciones de Arma</li>
+        </ul>
+    </div>
+
+    <script src="app.js"></script>
+</body>
 </html>
