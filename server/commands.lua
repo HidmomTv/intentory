@@ -83,28 +83,7 @@ QBCore.Commands.Add('inventoryadmin', 'Panel de Despacho Visual de Ítems (Admin
     TriggerClientEvent('qb-inventory:client:openAdminMenu', src, players, itemsList)
 end)
 
-RegisterNetEvent('qb-inventory:server:AdminGiveItem', function(targetId, itemName, amount)
-    local src = source
-    if not IsAdmin(src) then return end
-
-    local tid = tonumber(targetId)
-    if not tid or tid == 0 then tid = src end
-    local Target = QBCore.Functions.GetPlayer(tid)
-    if not Target then
-        TriggerClientEvent('QBCore:Notify', src, "Jugador desconectado", "error")
-        return
-    end
-
-    amount = tonumber(amount) or 1
-    if Target.Functions.AddItem(itemName, amount) then
-        TriggerClientEvent('QBCore:Notify', src, "Despachado " .. amount .. "x " .. itemName .. " a " .. GetPlayerName(tid), "success")
-        if tid ~= src then
-            TriggerClientEvent('QBCore:Notify', tid, "Recibiste " .. amount .. "x " .. itemName .. " de un administrador", "success")
-        end
-    else
-        TriggerClientEvent('QBCore:Notify', src, "El inventario del jugador está lleno", "error")
-    end
-end)
+-- Nota: AdminGiveItem y AdminClearInventory se gestionan en server/main.lua
 
 QBCore.Commands.Add('randomitems', 'Recibir ítems aleatorios (Pruebas)', {}, false, function(source)
     local src = source

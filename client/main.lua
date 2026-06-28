@@ -185,22 +185,29 @@ end)
 
 -- EVENTOS DE APERTURA SECUNDARIA (STASH, TRUNK, GLOVEBOX, SHOP)
 RegisterNetEvent('qb-inventory:client:openSecondary', function(title, maxWeight, containerId, type, itemsData)
+    -- Si el servidor ya mandó los items, abrimos directamente sin callback adicional
+    if itemsData ~= nil then
+        ToggleInventory(true, true, { title = title, maxWeight = maxWeight, id = containerId, items = itemsData, invType = type })
+        return
+    end
+
+    -- Fallback: pedir items por callback (solo si el servidor no los incluyó)
     if type == "stash" then
         QBCore.Functions.TriggerCallback('qb-inventory:server:GetStashItems', function(stashItems)
-            ToggleInventory(true, true, { title = title, maxWeight = maxWeight, id = containerId, items = stashItems, invType = "stash" })
+            ToggleInventory(true, true, { title = title, maxWeight = maxWeight, id = containerId, items = stashItems or {}, invType = "stash" })
         end, containerId)
     elseif type == "trunk" then
         QBCore.Functions.TriggerCallback('qb-inventory:server:GetTrunkItems', function(trunkItems)
-            ToggleInventory(true, true, { title = title, maxWeight = maxWeight, id = containerId, items = trunkItems, invType = "trunk" })
+            ToggleInventory(true, true, { title = title, maxWeight = maxWeight, id = containerId, items = trunkItems or {}, invType = "trunk" })
         end, containerId)
     elseif type == "glovebox" then
         QBCore.Functions.TriggerCallback('qb-inventory:server:GetGloveboxItems', function(gbItems)
-            ToggleInventory(true, true, { title = title, maxWeight = maxWeight, id = containerId, items = gbItems, invType = "glovebox" })
+            ToggleInventory(true, true, { title = title, maxWeight = maxWeight, id = containerId, items = gbItems or {}, invType = "glovebox" })
         end, containerId)
     elseif type == "shop" then
-        ToggleInventory(true, true, { title = title, maxWeight = 1000.0, id = containerId, items = itemsData or {}, invType = "shop" })
+        ToggleInventory(true, true, { title = title, maxWeight = 1000.0, id = containerId, items = {}, invType = "shop" })
     else
-        ToggleInventory(true, true, { title = title, maxWeight = maxWeight, id = containerId, items = itemsData or {}, invType = type })
+        ToggleInventory(true, true, { title = title, maxWeight = maxWeight, id = containerId, items = {}, invType = type })
     end
 end)
 

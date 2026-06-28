@@ -450,15 +450,18 @@ exports('OpenInventoryById', function(source, invId)
 end)
 exports('OpenStash', function(source, stashId)
     OpenedContainers[source] = { type = "stash", id = stashId }
-    TriggerClientEvent('qb-inventory:client:openSecondary', source, "Stash: " .. stashId, 100.0, stashId, "stash")
+    local items = LoadContainerItems("stash", stashId)
+    TriggerClientEvent('qb-inventory:client:openSecondary', source, "Stash: " .. stashId, 100.0, stashId, "stash", EnrichItems(items))
 end)
 exports('OpenTrunk', function(source, plate)
     OpenedContainers[source] = { type = "trunk", id = plate }
-    TriggerClientEvent('qb-inventory:client:openSecondary', source, "Maletero: " .. plate, 150.0, plate, "trunk")
+    local items = LoadContainerItems("trunk", plate)
+    TriggerClientEvent('qb-inventory:client:openSecondary', source, "Maletero: " .. plate, 150.0, plate, "trunk", EnrichItems(items))
 end)
 exports('OpenGlovebox', function(source, plate)
     OpenedContainers[source] = { type = "glovebox", id = plate }
-    TriggerClientEvent('qb-inventory:client:openSecondary', source, "Guantera: " .. plate, 15.0, plate, "glovebox")
+    local items = LoadContainerItems("glovebox", plate)
+    TriggerClientEvent('qb-inventory:client:openSecondary', source, "Guantera: " .. plate, 15.0, plate, "glovebox", EnrichItems(items))
 end)
 
 exports('HasItem', function(source, items, amount)
@@ -592,6 +595,30 @@ QBCore.Functions.CreateCallback('qb-inventory:server:GetGloveboxItems', function
     end
 end)
 
+-- HELPER: cargar items de contenedor desde memoria o DB
+local function LoadContainerItems(cType, id)
+    if cType == "stash" then
+        if not Stashes[id] then
+            local r = MySQL.query.await('SELECT items FROM stashitems WHERE stash = ?', { id })
+            Stashes[id] = { items = (r and r[1] and r[1].items and json.decode(r[1].items)) or {} }
+        end
+        return Stashes[id].items
+    elseif cType == "trunk" then
+        if not Trunks[id] then
+            local r = MySQL.query.await('SELECT items FROM trunkitems WHERE plate = ?', { id })
+            Trunks[id] = { items = (r and r[1] and r[1].items and json.decode(r[1].items)) or {} }
+        end
+        return Trunks[id].items
+    elseif cType == "glovebox" then
+        if not Gloveboxes[id] then
+            local r = MySQL.query.await('SELECT items FROM gloveboxitems WHERE plate = ?', { id })
+            Gloveboxes[id] = { items = (r and r[1] and r[1].items and json.decode(r[1].items)) or {} }
+        end
+        return Gloveboxes[id].items
+    end
+    return {}
+end
+
 -- EVENTOS NATIvOS DE APERTURA (tiendas, stashes, maleteros, guanteras)
 RegisterNetEvent('inventory:server:OpenInventory', function(type, id, other)
     local src = source
@@ -600,15 +627,37 @@ RegisterNetEvent('inventory:server:OpenInventory', function(type, id, other)
 
     OpenedContainers[src] = { type = type, id = id }
     if type == "stash" then
-        TriggerClientEvent('qb-inventory:client:openSecondary', src, "Armario: " .. id, 100.0, id, "stash")
+        local items = LoadContainerItems("stash", id)
+        TriggerClientEvent('qb-inventory:client:openSecondary', src, "Armario: " .. id, 100.0, id, "stash", EnrichItems(items))
     elseif type == "trunk" then
-        TriggerClientEvent('qb-inventory:client:openSecondary', src, "Maletero: " .. id, 150.0, id, "trunk")
+        local items = LoadContainerItems("trunk", id)
+        TriggerClientEvent('qb-inventory:client:openSecondary', src, "Maletero: " .. id, 150.0, id, "trunk", EnrichItems(items))
     elseif type == "glovebox" then
-        TriggerClientEvent('qb-inventory:client:openSecondary', src, "Guantera: " .. id, 15.0, id, "glovebox")
+        local items = LoadContainerItems("glovebox", id)
+        TriggerClientEvent('qb-inventory:client:openSecondary', src, "Guantera: " .. id, 15.0, id, "glovebox", EnrichItems(items))
     elseif type == "shop" then
         local shopItems = Shops[id] and Shops[id].items or (RegisteredShops and RegisteredShops[id] and RegisteredShops[id].items) or (other and other.items or {})
         TriggerClientEvent('qb-inventory:client:openSecondary', src, Shops[id] and Shops[id].name or (RegisteredShops and RegisteredShops[id] and RegisteredShops[id].label) or "Tienda", 1000.0, id, "shop", shopItems)
     end
+end)
+
+-- CALLBACKS PARA OBTENER ITEMS DE CONTENEDOR (solicitados por el cliente)
+QBCore.Functions.CreateCallback('qb-inventory:server:GetStashItems', function(source, cb, stashId)
+    local items = LoadContainerItems("stash", stashId)
+    OpenedContainers[source] = { type = "stash", id = stashId }
+    cb(EnrichItems(items))
+end)
+
+QBCore.Functions.CreateCallback('qb-inventory:server:GetTrunkItems', function(source, cb, plate)
+    local items = LoadContainerItems("trunk", plate)
+    OpenedContainers[source] = { type = "trunk", id = plate }
+    cb(EnrichItems(items))
+end)
+
+QBCore.Functions.CreateCallback('qb-inventory:server:GetGloveboxItems', function(source, cb, plate)
+    local items = LoadContainerItems("glovebox", plate)
+    OpenedContainers[source] = { type = "glovebox", id = plate }
+    cb(EnrichItems(items))
 end)
 
 -- GUARDADO DE CONTENEDORES
