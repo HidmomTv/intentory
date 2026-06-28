@@ -555,6 +555,8 @@ QBCore.Functions.CreateCallback('qb-inventory:server:GetAdminData', function(sou
 end)
 
 QBCore.Functions.CreateCallback('qb-inventory:server:GetStashItems', function(source, cb, stashId)
+    -- Registrar contenedor abierto para que PutInSecondary/TakeFromSecondary funcionen
+    OpenedContainers[source] = { type = "stash", id = stashId }
     if Stashes[stashId] then cb(EnrichItems(Stashes[stashId].items)) return end
     local result = MySQL.query.await('SELECT items FROM stashitems WHERE stash = ?', { stashId })
     if result[1] and result[1].items then
@@ -570,6 +572,8 @@ end)
 QBCore.Functions.CreateCallback('qb-inventory:server:GetCurrentDrops', function(source, cb) cb(Drops) end)
 
 QBCore.Functions.CreateCallback('qb-inventory:server:GetTrunkItems', function(source, cb, plate)
+    -- Registrar contenedor abierto para que PutInSecondary/TakeFromSecondary funcionen
+    OpenedContainers[source] = { type = "trunk", id = plate }
     if Trunks[plate] then cb(EnrichItems(Trunks[plate].items)) return end
     local result = MySQL.query.await('SELECT items FROM trunkitems WHERE plate = ?', { plate })
     if result[1] and result[1].items then
@@ -583,6 +587,8 @@ QBCore.Functions.CreateCallback('qb-inventory:server:GetTrunkItems', function(so
 end)
 
 QBCore.Functions.CreateCallback('qb-inventory:server:GetGloveboxItems', function(source, cb, plate)
+    -- Registrar contenedor abierto para que PutInSecondary/TakeFromSecondary funcionen
+    OpenedContainers[source] = { type = "glovebox", id = plate }
     if Gloveboxes[plate] then cb(EnrichItems(Gloveboxes[plate].items)) return end
     local result = MySQL.query.await('SELECT items FROM gloveboxitems WHERE plate = ?', { plate })
     if result[1] and result[1].items then

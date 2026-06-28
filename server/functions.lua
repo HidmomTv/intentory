@@ -1,4 +1,5 @@
 -- Local Functions
+local QBCore = exports['qb-core']:GetCoreObject()
 local function GetPlayerMaxWeight()
     return type(Config.MaxWeight) == 'table' and (Config.MaxWeight.player or 120000) or (tonumber(Config.MaxWeight) or 120000)
 end
