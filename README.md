@@ -1,31 +1,49 @@
-# 🎒 qb-inventory — by HidmomTv
+# 🎒 qb-inventory — Rework by HidmomTv
 
 <p align="center">
-  <img src="https://img.shields.io/badge/Author-HidmomTv-blue?style=for-the-badge&logo=github&logoColor=white" />
-  <img src="https://img.shields.io/badge/Framework-QBCore-00d1b2?style=for-the-badge&logo=fivem&logoColor=white" />
+  <img src="https://img.shields.io/badge/Fork%20of-qb--inventory%20(QBCore)-00d1b2?style=for-the-badge&logo=github&logoColor=white" />
+  <img src="https://img.shields.io/badge/Rework%20by-HidmomTv-blue?style=for-the-badge&logo=github&logoColor=white" />
+  <img src="https://img.shields.io/badge/Framework-QBCore-orange?style=for-the-badge&logo=fivem&logoColor=white" />
   <img src="https://img.shields.io/badge/License-GPL--3.0-green?style=for-the-badge" />
   <img src="https://img.shields.io/badge/Contributions-Welcome-brightgreen?style=for-the-badge" />
 </p>
 
-Un reemplazo completo y moderno del inventario estándar de QBCore Framework, con interfaz visual custom (HTML/CSS/JS), sistema de contenedores vehiculares, tiendas, stashes, menú de admin y mucho más.
-
-> **Creado y mantenido por [HidmomTv](https://github.com/HidmomTv).**  
-> Las contribuciones externas son bienvenidas — lee la sección [Contribuir](#-contribuir).
+> **Este proyecto es un fork y rework completo del [`qb-inventory`](https://github.com/qbcore-framework/qb-inventory) original de [QBCore Framework](https://github.com/qbcore-framework).**  
+> Todo el crédito de la base original pertenece al equipo de QBCore. Este fork añade una interfaz visual completamente nueva (HTML/CSS/JS) y amplía la lógica de servidor con nuevas funcionalidades.
+>
+> Rework y mantenimiento por **[HidmomTv](https://github.com/HidmomTv)**.
 
 ---
 
-## ✨ Características
+## 🔀 ¿Qué cambia respecto al original?
 
-- **Inventario visual moderno** — interfaz HTML/CSS/JS completamente personalizable con temas de color
+| Característica | qb-inventory original | Este fork |
+|---|---|---|
+| Interfaz | NUI básica | HTML/CSS/JS completamente personalizada |
+| Temas visuales | No | Sí — temas de color en tiempo real |
+| Drag & Drop | Sí | Sí — reescrito y mejorado |
+| Maleteros/Guanteras | Sí | Sí — con carga lazy desde DB |
+| Tiendas (shops) | Sí | Sí — compatibilidad con `RegisteredShops` y `Shops` |
+| Panel de admin | No | Sí — `/inventoryadmin` con UI visual |
+| Hotbar | No | Sí — slots 1–5 con atajos de teclado |
+| Sistema de ropa | No | Sí — panel lateral de equipación |
+| `SyncPlayerUI` export | No | Sí — actualización en tiempo real tras cualquier operación |
+| Recetas de crafting | No | Sí — sistema básico extensible |
+
+---
+
+## ✨ Características incluidas
+
+- **Inventario visual moderno** — interfaz HTML/CSS/JS personalizable con temas de color
 - **Drag & drop** — mueve ítems entre slots arrastrando con el ratón
 - **Inventarios secundarios** — maleteros, guanteras y stashes con persistencia en base de datos
 - **Tiendas** — soporte completo para compra de ítems vía NUI
 - **Menú de admin** — panel visual para dar ítems a jugadores (`/inventoryadmin`, `/giveitem`)
 - **Sistema de ropa** — panel lateral para equipar/quitar ropa al personaje
-- **Crafting** — recetas básicas de fabricación en el cliente
+- **Crafting** — recetas básicas de fabricación extensibles
 - **Hotbar** — barra de acceso rápido (slots 1–5) con atajos de teclado
 - **Sistema de armas** — inspección y gestión de armas dentro del inventario
-- **Drops al suelo** — al morir o tirar ítems, aparecen como bolsas recogibles en el mundo
+- **Drops al suelo** — al morir o tirar ítems, aparecen como bolsas recogibles
 - **Sincronización en tiempo real** — el inventario se actualiza al instante tras cada operación
 
 ---
@@ -42,36 +60,28 @@ Un reemplazo completo y moderno del inventario estándar de QBCore Framework, co
 
 ## 🛠️ Instalación
 
-### 1. Descarga el recurso
+### 1. Clona el repositorio
 ```bash
 cd resources/[qb]/
 git clone https://github.com/HidmomTv/intentory.git qb-inventory
 ```
 
 ### 2. Importa la base de datos
-Ejecuta el archivo SQL en tu base de datos MySQL:
 ```bash
 mysql -u root -p tu_base_de_datos < qb-inventory.sql
 ```
-O usa el archivo `install.sql` si es una instalación nueva.
+O usa `install.sql` si es instalación nueva.
 
-### 3. Activa el recurso
-En tu `server.cfg`:
+### 3. Activa el recurso en `server.cfg`
 ```
 ensure qb-inventory
-```
-
-### 4. Reinicia el servidor o usa txAdmin
-```
-refresh
-start qb-inventory
 ```
 
 ---
 
 ## ⚙️ Configuración
 
-Edita `config/config.lua` para ajustar:
+Edita `config/config.lua`:
 - `Config.MaxWeight` — peso máximo del inventario del jugador
 - `Config.MaxSlots` — número de slots de la mochila
 - `Config.StashSize` — tamaño de los stashes
@@ -79,16 +89,9 @@ Edita `config/config.lua` para ajustar:
 
 ---
 
-## 🔑 Permisos de Administrador
+## 🔑 Permisos de Admin
 
-Los comandos y el panel de admin requieren uno de estos grupos de permiso en QBCore/txAdmin:
-- `admin`
-- `god`
-- `command`
-- `mod`
-- Ace `command`
-
-### Comandos disponibles
+Comandos de admin disponibles para los grupos: `admin`, `god`, `command`, `mod` o Ace `command`.
 
 | Comando | Descripción |
 |---------|-------------|
@@ -98,28 +101,18 @@ Los comandos y el panel de admin requieren uno de estos grupos de permiso en QBC
 
 ---
 
-## 🚗 Integración vehicular
+## 🚗 Exports disponibles
 
-Para abrir el maletero/guantera desde otro recurso:
 ```lua
--- Maletero
+-- Abrir contenedores desde otro recurso
 exports['qb-inventory']:OpenTrunk(source, plate)
-
--- Guantera
 exports['qb-inventory']:OpenGlovebox(source, plate)
-
--- Stash
 exports['qb-inventory']:OpenStash(source, stashId)
-```
+exports['qb-inventory']:OpenShop(source, shopName)
 
----
-
-## 🛒 Integración de tiendas
-
-Registra una tienda desde tu script:
-```lua
+-- Registrar una tienda
 exports['qb-inventory']:CreateShop({
-    name = "mi_tienda",
+    name  = "mi_tienda",
     label = "Tienda General",
     items = {
         { name = "water", price = 50, amount = 99 },
@@ -127,8 +120,11 @@ exports['qb-inventory']:CreateShop({
     }
 })
 
--- Abrirla para un jugador
-exports['qb-inventory']:OpenShop(source, "mi_tienda")
+-- Sincronizar UI de un jugador
+exports['qb-inventory']:SyncPlayerUI(source)
+
+-- Comprobar si el jugador tiene un ítem
+exports['qb-inventory']:HasItem(source, "water", 1)
 ```
 
 ---
@@ -146,20 +142,20 @@ qb-inventory/
 │   ├── weapons.lua       # Gestión de armas
 │   └── hotbar.lua        # Barra de acceso rápido
 ├── server/
-│   ├── main.lua          # Lógica principal servidor (contenedores, tiendas, sync)
+│   ├── main.lua          # Lógica principal servidor
 │   ├── functions.lua     # Funciones auxiliares y callbacks
 │   ├── items.lua         # Carga de ítems de QBCore
 │   └── commands.lua      # Comandos de administración
 ├── html/
 │   ├── index.html        # Estructura HTML de la interfaz NUI
-│   ├── style.css         # Estilos visuales con temas de color
-│   ├── app.js            # Lógica JS del inventario (drag&drop, NUI callbacks)
+│   ├── style.css         # Estilos con temas de color
+│   ├── app.js            # Lógica JS (drag&drop, NUI callbacks)
 │   └── images/           # Imágenes de ítems
 ├── config/
 │   └── config.lua        # Configuración del recurso
-├── locales/              # Traducciones (es, en, ...)
+├── locales/              # Traducciones
 ├── install.sql           # SQL inicial
-├── fxmanifest.lua        # Manifiesto FiveM
+├── fxmanifest.lua
 └── README.md
 ```
 
@@ -167,35 +163,40 @@ qb-inventory/
 
 ## 🤝 Contribuir
 
-¡Las contribuciones son bienvenidas! Sigue estos pasos:
+¡Las contribuciones son bienvenidas! Este es un fork comunitario — cuantas más manos mejor.
 
 1. **Fork** este repositorio
-2. Crea una rama nueva: `git checkout -b feature/mi-mejora`
-3. Haz tus cambios y commitea: `git commit -m "feat: descripción del cambio"`
-4. Haz push a tu fork: `git push origin feature/mi-mejora`
-5. Abre un **Pull Request** describiendo el cambio
+2. Crea una rama: `git checkout -b feat/mi-mejora`
+3. Commitea: `git commit -m "feat: descripción del cambio"`
+4. Push: `git push origin feat/mi-mejora`
+5. Abre un **Pull Request**
 
-### Guía de estilo
-- Código Lua siguiendo las convenciones de QBCore
-- Comentarios en **español** si es lógica de negocio, **inglés** si es técnico
-- Sin dependencias externas nuevas sin consultar primero en un Issue
-- Probado en un servidor FiveM con QBCore antes de hacer el PR
+Lee la [guía completa de contribución](.github/contributing.md).
 
-### Bugs y sugerencias
-Abre un [Issue](https://github.com/HidmomTv/intentory/issues) con:
-- Descripción del problema o idea
-- Pasos para reproducirlo (si es un bug)
-- Versión del servidor y QBCore
+### Reportar bugs
+Abre un [Issue](https://github.com/HidmomTv/intentory/issues) con descripción, pasos para reproducirlo y versiones de FiveM/QBCore.
+
+---
+
+## ❤️ Créditos
+
+| Rol | Autor |
+|-----|-------|
+| **Proyecto original** | [QBCore Framework](https://github.com/qbcore-framework/qb-inventory) |
+| **Rework y mantenimiento** | [HidmomTv](https://github.com/HidmomTv) |
+
+Este fork respeta y mantiene la licencia GPL-3.0 del proyecto original.
 
 ---
 
 ## 📄 Licencia
 
-Distribuido bajo la licencia [GPL-3.0](LICENSE).  
-Puedes usar, modificar y redistribuir el código **siempre que mantengas la misma licencia y créditos al autor original**.
+Distribuido bajo la licencia [GPL-3.0](LICENSE), heredada del proyecto original de QBCore.  
+Puedes usar, modificar y redistribuir **siempre que mantengas la misma licencia y los créditos originales**.
 
 ---
 
 <p align="center">
-  Hecho con ❤️ por <a href="https://github.com/HidmomTv">HidmomTv</a>
+  Fork de <a href="https://github.com/qbcore-framework/qb-inventory">qb-inventory (QBCore)</a> •
+  Rework por <a href="https://github.com/HidmomTv">HidmomTv</a>
 </p>

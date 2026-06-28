@@ -1,8 +1,8 @@
 fx_version 'cerulean'
 game 'gta5'
 
-author 'HidmomTv'
-description 'qb-inventory custom — by HidmomTv (https://github.com/HidmomTv)'
+author 'HidmomTv (fork of qb-inventory by QBCore Framework)'
+description 'qb-inventory rework — fork of https://github.com/qbcore-framework/qb-inventory'
 version '2.0.0'
 provide 'qb-inventory'
 repository 'https://github.com/HidmomTv/intentory'
