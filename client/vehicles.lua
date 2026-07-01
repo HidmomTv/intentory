@@ -1,7 +1,16 @@
+local QBCore = exports['qb-core']:GetCoreObject()
+
+local function LoadAnimDict(dict)
+    while not HasAnimDictLoaded(dict) do
+        RequestAnimDict(dict)
+        Wait(5)
+    end
+end
+
 -- Functions
 
 local function IsBackEngine(vehModel)
-    return BackEngineVehicles[vehModel]
+    return BackEngineVehicles and BackEngineVehicles[vehModel]
 end
 
 local function OpenTrunk(vehicle)

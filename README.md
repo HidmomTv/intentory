@@ -63,7 +63,7 @@
 ### 1. Clona el repositorio
 ```bash
 cd resources/[qb]/
-git clone https://github.com/HidmomTv/intentory.git qb-inventory
+git clone https://github.com/HidmomTv/qb-inventory.git
 ```
 
 ### 2. Importa la base de datos
@@ -135,15 +135,16 @@ exports['qb-inventory']:HasItem(source, "water", 1)
 qb-inventory/
 ├── client/
 │   ├── main.lua          # Lógica principal cliente (NUI, eventos, teclado)
+│   ├── drops.lua         # Interacción con bolsas de ítems tirados en el suelo
+│   ├── vehicles.lua      # Apertura de maleteros y guanteras
 │   ├── clothing.lua      # Gestión del menú de ropa
-│   ├── loot.lua          # Sistema de drops/loot
+│   ├── loot.lua          # Sistema de búsqueda en contenedores/basura
 │   ├── rob.lua           # Robos entre jugadores
 │   ├── crafting.lua      # Crafting client-side
-│   ├── weapons.lua       # Gestión de armas
+│   ├── weapons.lua       # Gestión de armas y accesorios
 │   └── hotbar.lua        # Barra de acceso rápido
 ├── server/
-│   ├── main.lua          # Lógica principal servidor
-│   ├── functions.lua     # Funciones auxiliares y callbacks
+│   ├── main.lua          # Lógica principal servidor e inventarios
 │   ├── items.lua         # Carga de ítems de QBCore
 │   └── commands.lua      # Comandos de administración
 ├── html/
@@ -152,9 +153,10 @@ qb-inventory/
 │   ├── app.js            # Lógica JS (drag&drop, NUI callbacks)
 │   └── images/           # Imágenes de ítems
 ├── config/
-│   └── config.lua        # Configuración del recurso
-├── locales/              # Traducciones
-├── install.sql           # SQL inicial
+│   ├── config.lua        # Configuración principal del recurso
+│   └── vehicles.lua      # Configuración de capacidades de maleteros y motores
+├── locales/              # Traducciones en/es
+├── install.sql           # SQL inicial para tablas
 ├── fxmanifest.lua
 └── README.md
 ```
@@ -174,7 +176,7 @@ qb-inventory/
 Lee la [guía completa de contribución](.github/contributing.md).
 
 ### Reportar bugs
-Abre un [Issue](https://github.com/HidmomTv/intentory/issues) con descripción, pasos para reproducirlo y versiones de FiveM/QBCore.
+Abre un [Issue](https://github.com/HidmomTv/qb-inventory/issues) con descripción, pasos para reproducirlo y versiones de FiveM/QBCore.
 
 ---
 

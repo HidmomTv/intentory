@@ -242,7 +242,18 @@ RegisterNetEvent('qb-inventory:client:removeDrop', function(dropId)
 end)
 
 RegisterNetEvent('qb-inventory:client:openLoot', function(dropId, items)
-    ToggleInventory(true, true, { title = "Bolsa en el suelo", maxWeight = 50.0, id = dropId, items = items, invType = "drop" })
+    if isOpen then
+        SendNUIMessage({
+            action = 'openContainer',
+            containerId = dropId,
+            items = items,
+            title = "Bolsa en el suelo",
+            maxWeight = 50.0,
+            invType = "drop"
+        })
+    else
+        ToggleInventory(true, true, { title = "Bolsa en el suelo", maxWeight = 50.0, id = dropId, items = items, invType = "drop" })
+    end
 end)
 
 RegisterNetEvent('qb-inventory:client:updateSecondaryContainer', function(containerId, items, title, maxWeight, invType)

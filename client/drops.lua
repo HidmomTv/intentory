@@ -1,3 +1,4 @@
+local QBCore = exports['qb-core']:GetCoreObject()
 HoldingDrop = false
 local bagObject = nil
 local heldDrop = nil

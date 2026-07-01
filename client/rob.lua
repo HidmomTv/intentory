@@ -1,4 +1,4 @@
--- client/rob.lua
+local QBCore = exports['qb-core']:GetCoreObject()
 
 local function GetClosestPlayer()
     local players = GetActivePlayers()
@@ -28,17 +28,21 @@ RegisterCommand('robar', function()
     if closestPlayer ~= -1 and closestDistance < 2.0 then
         local targetPed = GetPlayerPed(closestPlayer)
         
-        -- Comprobamos si el objetivo está muerto o con las manos arriba
-        if IsEntityDead(targetPed) or IsEntityPlayingAnim(targetPed, "missminuteman_1ig_2", "handsup_base", 3) then
-            print("^2[Robo] Registrando jugador: " .. GetPlayerServerId(closestPlayer) .. "^7")
+        -- Comprobamos si el objetivo está muerto, esposado o con las manos arriba
+        if IsEntityDead(targetPed) or IsEntityPlayingAnim(targetPed, "missminuteman_1ig_2", "handsup_base", 3) or IsEntityPlayingAnim(targetPed, "mp_arresting", "idle", 3) then
+            QBCore.Functions.Notify("Cacheando al jugador...", "info")
             TriggerServerEvent('qb-inventory:server:robPlayer', GetPlayerServerId(closestPlayer))
             
-            -- TODO: Reproducir animación de cachear en nuestro personaje
+            -- Animación de cacheo
+            CreateThread(function()
+                RequestAnimDict("random@shop_robbery")
+                while not HasAnimDictLoaded("random@shop_robbery") do Wait(10) end
+                TaskPlayAnim(PlayerPedId(), "random@shop_robbery", "robbery_action_b", 8.0, -8.0, 2000, 48, 0, false, false, false)
+            end)
         else
-            print("^1[Robo] El jugador no tiene las manos arriba ni está inconsciente.^7")
-            -- Opcional: Mostrar una notificación in-game en lugar del print
+            QBCore.Functions.Notify("El jugador no tiene las manos arriba ni está inconsciente o esposado", "error")
         end
     else
-        print("^1[Robo] No hay jugadores cerca.^7")
+        QBCore.Functions.Notify("No hay jugadores cerca", "error")
     end
 end)

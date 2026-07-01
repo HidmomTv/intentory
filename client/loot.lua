@@ -1,4 +1,4 @@
--- client/loot.lua
+local QBCore = exports['qb-core']:GetCoreObject()
 
 local function RotationToDirection(rotation)
     local adjustedRotation = {
@@ -45,26 +45,28 @@ local lootableProps = {
 
 Citizen.CreateThread(function()
     while true do
-        Citizen.Wait(0)
+        local waitTime = 500
+        local ped = PlayerPedId()
+        local entityHit, endCoords = GetEntityPlayerIsLookingAt(3.0)
         
-        -- Al pulsar ALT (tecla 19) o E (38)
-        if IsControlJustPressed(0, 38) then 
-            local entityHit, endCoords = GetEntityPlayerIsLookingAt(3.0)
-            if entityHit then
-                local model = GetEntityModel(entityHit)
-                
-                -- Si el modelo que miramos está en nuestra tabla de loot
-                if lootableProps[model] then
+        if entityHit then
+            local model = GetEntityModel(entityHit)
+            if lootableProps[model] then
+                waitTime = 0
+                if IsControlJustPressed(0, 38) then 
                     local lootType = lootableProps[model]
                     local propCoords = GetEntityCoords(entityHit)
                     
-                    -- Avisamos al servidor para que genere el loot según el tipo (basura, papelera, etc.)
-                    TriggerServerEvent('qb-inventory:server:searchProp', lootType, propCoords)
+                    QBCore.Functions.Notify("Buscando...", "info")
+                    TaskStartScenarioInPlace(ped, "PROP_HUMAN_BUM_BIN", 0, true)
+                    Citizen.Wait(3000)
+                    ClearPedTasks(ped)
                     
-                    -- Prevenimos spam de la tecla
+                    TriggerServerEvent('qb-inventory:server:searchProp', lootType, propCoords)
                     Citizen.Wait(2000) 
                 end
             end
         end
+        Citizen.Wait(waitTime)
     end
 end)

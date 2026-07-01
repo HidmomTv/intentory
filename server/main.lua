@@ -5,8 +5,8 @@ local Trunks = {}
 local Gloveboxes = {}
 local Stashes = {}
 local Shops = {}
-RegisteredShops = RegisteredShops or {}
 local OpenedContainers = {}
+local SearchedProps = {}
 local SyncPlayerUI
 
 local function CopyTable(orig)
@@ -554,52 +554,7 @@ QBCore.Functions.CreateCallback('qb-inventory:server:GetAdminData', function(sou
     cb(players, itemsList)
 end)
 
-QBCore.Functions.CreateCallback('qb-inventory:server:GetStashItems', function(source, cb, stashId)
-    -- Registrar contenedor abierto para que PutInSecondary/TakeFromSecondary funcionen
-    OpenedContainers[source] = { type = "stash", id = stashId }
-    if Stashes[stashId] then cb(EnrichItems(Stashes[stashId].items)) return end
-    local result = MySQL.query.await('SELECT items FROM stashitems WHERE stash = ?', { stashId })
-    if result[1] and result[1].items then
-        local items = json.decode(result[1].items)
-        Stashes[stashId] = { items = items }
-        cb(EnrichItems(items))
-    else
-        Stashes[stashId] = { items = {} }
-        cb({})
-    end
-end)
-
 QBCore.Functions.CreateCallback('qb-inventory:server:GetCurrentDrops', function(source, cb) cb(Drops) end)
-
-QBCore.Functions.CreateCallback('qb-inventory:server:GetTrunkItems', function(source, cb, plate)
-    -- Registrar contenedor abierto para que PutInSecondary/TakeFromSecondary funcionen
-    OpenedContainers[source] = { type = "trunk", id = plate }
-    if Trunks[plate] then cb(EnrichItems(Trunks[plate].items)) return end
-    local result = MySQL.query.await('SELECT items FROM trunkitems WHERE plate = ?', { plate })
-    if result[1] and result[1].items then
-        local items = json.decode(result[1].items)
-        Trunks[plate] = { items = items }
-        cb(EnrichItems(items))
-    else
-        Trunks[plate] = { items = {} }
-        cb({})
-    end
-end)
-
-QBCore.Functions.CreateCallback('qb-inventory:server:GetGloveboxItems', function(source, cb, plate)
-    -- Registrar contenedor abierto para que PutInSecondary/TakeFromSecondary funcionen
-    OpenedContainers[source] = { type = "glovebox", id = plate }
-    if Gloveboxes[plate] then cb(EnrichItems(Gloveboxes[plate].items)) return end
-    local result = MySQL.query.await('SELECT items FROM gloveboxitems WHERE plate = ?', { plate })
-    if result[1] and result[1].items then
-        local items = json.decode(result[1].items)
-        Gloveboxes[plate] = { items = items }
-        cb(EnrichItems(items))
-    else
-        Gloveboxes[plate] = { items = {} }
-        cb({})
-    end
-end)
 
 -- HELPER: cargar items de contenedor desde memoria o DB
 local function LoadContainerItems(cType, id)
@@ -1037,6 +992,12 @@ local function GetContainerData(src, containerId, cType)
     elseif cType == "shop" then
         local shopData = Shops[containerId] or (RegisteredShops and RegisteredShops[containerId])
         return shopData, "shop", shopData and (shopData.name or shopData.label) or "Tienda", 1000.0
+    elseif cType == "otherplayer" then
+        local targetSrc = tonumber(containerId)
+        local TargetPlayer = QBCore.Functions.GetPlayer(targetSrc)
+        if TargetPlayer then
+            return { items = TargetPlayer.PlayerData.items }, "otherplayer", "Jugador [" .. targetSrc .. "]", Config.MaxWeight or 120000
+        end
     end
     return nil
 end
@@ -1048,6 +1009,13 @@ local function SaveContainerData(id, cType, container)
         MySQL.insert('INSERT INTO trunkitems (plate, items) VALUES (?, ?) ON DUPLICATE KEY UPDATE items = ?', { id, json.encode(container.items), json.encode(container.items) })
     elseif cType == "glovebox" then
         MySQL.insert('INSERT INTO gloveboxitems (plate, items) VALUES (?, ?) ON DUPLICATE KEY UPDATE items = ?', { id, json.encode(container.items), json.encode(container.items) })
+    elseif cType == "otherplayer" then
+        local targetSrc = tonumber(id)
+        local TargetPlayer = QBCore.Functions.GetPlayer(targetSrc)
+        if TargetPlayer then
+            TargetPlayer.Functions.SetPlayerData("items", container.items)
+            SyncPlayerUI(targetSrc)
+        end
     end
 end
 
@@ -1336,4 +1304,58 @@ RegisterNetEvent('qb-inventory:server:AdminClearInventory', function(targetId)
         SyncPlayerUI(target)
         TriggerClientEvent('QBCore:Notify', src, "Inventario limpiado correctamente", "success")
     end
+end)
+
+-- SAQUEO DE CONTENEDORES (LOOT DE BASURAS)
+RegisterNetEvent('qb-inventory:server:searchProp', function(lootType, coords)
+    local src = source
+    local Player = QBCore.Functions.GetPlayer(src)
+    if not Player or not coords then return end
+
+    local coordsKey = string.format("%.1f_%.1f_%.1f", coords.x, coords.y, coords.z)
+    local now = GetGameTimer()
+    if SearchedProps[coordsKey] and (now - SearchedProps[coordsKey]) < 300000 then
+        TriggerClientEvent('QBCore:Notify', src, "Ya han rebuscado aquí recientemente...", "error")
+        return
+    end
+
+    SearchedProps[coordsKey] = now
+
+    local lootPool = {
+        basura = { "metalscrap", "plastic", "glass", "empty_weed_bag" },
+        papelera = { "plastic", "paper", "water_bottle" },
+        caja = { "wood", "metalscrap", "lockpick" }
+    }
+
+    local possibleItems = lootPool[lootType] or { "metalscrap", "plastic" }
+    if math.random(1, 100) <= 75 then
+        local chosenItem = possibleItems[math.random(1, #possibleItems)]
+        local amount = math.random(1, 3)
+        if Player.Functions.AddItem(chosenItem, amount) then
+            TriggerClientEvent('QBCore:Notify', src, "Encontraste algo en la basura", "success")
+            SyncPlayerUI(src)
+        else
+            TriggerClientEvent('QBCore:Notify', src, "Encontraste algo pero no te cabe en el inventario", "error")
+        end
+    else
+        TriggerClientEvent('QBCore:Notify', src, "No encontraste nada útil", "info")
+    end
+end)
+
+-- ROBO ENTRE JUGADORES
+RegisterNetEvent('qb-inventory:server:robPlayer', function(targetId)
+    local src = source
+    local Player = QBCore.Functions.GetPlayer(src)
+    local Target = QBCore.Functions.GetPlayer(tonumber(targetId))
+    if not Player or not Target or src == tonumber(targetId) then return end
+
+    local srcPed = GetPlayerPed(src)
+    local tgtPed = GetPlayerPed(tonumber(targetId))
+    if #(GetEntityCoords(srcPed) - GetEntityCoords(tgtPed)) > 5.0 then
+        TriggerClientEvent('QBCore:Notify', src, "Estás muy lejos del objetivo", "error")
+        return
+    end
+
+    OpenedContainers[src] = { type = "otherplayer", id = targetId }
+    TriggerClientEvent('qb-inventory:client:openSecondary', src, "Cacheo: " .. GetPlayerName(targetId), 4.0, targetId, "otherplayer", EnrichItems(Target.PlayerData.items))
 end)

@@ -197,6 +197,13 @@ window.addEventListener("message", (event) => {
         if (event.data.otherInventory) otherData = event.data.otherInventory;
         updateWeightBar();
         renderAllGrids();
+    } else if (action === "closeSecondaryDrop") {
+        if (otherData && (String(otherData.id) === String(event.data.dropId) || otherData.invType === "drop")) {
+            otherData = { id: null, name: "Suelo", inventory: {}, maxSlots: 40, invType: "drop" };
+            const titleEl = document.getElementById("other-inventory-title");
+            if (titleEl) titleEl.innerHTML = `<i class="fa-solid fa-cloud-arrow-down"></i> Suelo / Drops`;
+            renderAllGrids();
+        }
     }
 });
 
@@ -319,6 +326,26 @@ function getItemInSlot(inv, slot) {
     return Object.values(inv).find(i => i && Number(i.slot) === Number(slot)) || null;
 }
 
+window.handleImgError = function(img, itemName = "") {
+    const baseName = itemName.replace(/\.[^/.]+$/, "");
+    if (!img.dataset.triedWebp) {
+        img.dataset.triedWebp = "1";
+        img.src = `images/${baseName}.webp`;
+    } else if (!img.dataset.triedPNG) {
+        img.dataset.triedPNG = "1";
+        img.src = `images/${baseName}.PNG`;
+    } else if (!img.dataset.triedLegacy) {
+        img.dataset.triedLegacy = "1";
+        img.src = `nui://qb-inventory/web/public/images/${baseName}.png`;
+    } else if (!img.dataset.triedLegacyWebp) {
+        img.dataset.triedLegacyWebp = "1";
+        img.src = `nui://qb-inventory/web/public/images/${baseName}.webp`;
+    } else {
+        img.onerror = null;
+        img.src = `images/default.png`;
+    }
+};
+
 /* SLOT ELEMENT CREATION */
 function createSlotElement(slotNumber, item, invType) {
     const slotDiv = document.createElement("div");
@@ -398,7 +425,7 @@ function createSlotElement(slotNumber, item, invType) {
             if (otherData.invType === "shop" && invType === "other") {
                 const amount = Number(document.getElementById("item-amount").value) || 1;
                 postNUI("BuyItem", { shop: otherData.id, item: item, amount: amount });
-            } else if (item.type === "weapon" || (item.name && item.name.toLowerCase().startsWith("weapon_"))) {
+            } else if (item.type === "weapon" || String(item.name || '').toLowerCase().startsWith("weapon_")) {
                 openWeaponInspection(item);
             } else if (invType === "player") {
                 useItem(item);
@@ -411,7 +438,7 @@ function createSlotElement(slotNumber, item, invType) {
             e.stopPropagation();
             selectedSlot = { item, slotNumber, invType };
             highlightSelectedSlot();
-            showContextMenu(e.pageX, e.pageY, item, invType);
+            showContextMenu(e.clientX, e.clientY, item, invType);
         });
 
     }
@@ -672,56 +699,75 @@ function setupClothingToggles() {
 
 /* WEAPON INSPECTION MODAL */
 function openWeaponInspection(weapon) {
-    document.getElementById("weapon-inspect-title").innerHTML = `<i class="fa-solid fa-crosshairs"></i> ${weapon.label}`;
+    if (!weapon) return;
+    document.getElementById("weapon-inspect-title").innerHTML = `<i class="fa-solid fa-crosshairs"></i> ${weapon.label || weapon.name}`;
+    
     const wImg = document.getElementById("weapon-inspect-img");
-    wImg.dataset.triedWebp = ""; wImg.dataset.triedPNG = ""; wImg.dataset.triedLegacy = ""; wImg.dataset.triedLegacyWebp = "";
-    window.handleImgError(wImg, weapon.image || weapon.name);
-    document.getElementById("weapon-ammo-count").innerText = `${weapon.info?.ammo || 0} disparos`;
+    if (wImg) {
+        const imgName = weapon.image || weapon.name + '.png';
+        const baseName = imgName.replace(/\.[^/.]+$/, "");
+        wImg.dataset.triedWebp = ""; wImg.dataset.triedPNG = ""; wImg.dataset.triedLegacy = ""; wImg.dataset.triedLegacyWebp = "";
+        wImg.src = `images/${baseName}.png`;
+        wImg.onerror = function() { window.handleImgError(this, baseName); };
+    }
+
+    const ammoEl = document.getElementById("weapon-ammo-count");
+    if (ammoEl) ammoEl.innerText = `${weapon.info?.ammo || 0} disparos`;
+
+    const dmgEl = document.getElementById("weapon-damage-stat");
+    if (dmgEl) {
+        const quality = (weapon.info && weapon.info.quality !== undefined) ? `${Math.round(weapon.info.quality)}% Durabilidad` : "100% Óptimo";
+        dmgEl.innerText = quality;
+    }
 
     const attachList = document.getElementById("attachments-list");
-    attachList.innerHTML = "";
+    if (attachList) {
+        attachList.innerHTML = "";
 
-    const availableAttach = [
-        { id: "suppressor", label: "Silenciador", icon: "fa-volume-xmark" },
-        { id: "flashlight", label: "Linterna Táctica", icon: "fa-lightbulb" },
-        { id: "scope", label: "Mira Telescópica", icon: "fa-crosshairs" },
-        { id: "clip", label: "Cargador Ampliado", icon: "fa-bars-staggered" }
-    ];
+        const availableAttach = [
+            { id: "suppressor", label: "Silenciador", icon: "fa-volume-xmark" },
+            { id: "flashlight", label: "Linterna Táctica", icon: "fa-lightbulb" },
+            { id: "scope", label: "Mira Telescópica", icon: "fa-crosshairs" },
+            { id: "clip", label: "Cargador Ampliado", icon: "fa-bars-staggered" }
+        ];
 
-    availableAttach.forEach(att => {
-        const attachments = Array.isArray(weapon.info?.attachments) ? weapon.info.attachments : Object.values(weapon.info?.attachments || {});
-        const hasAttach = attachments.some(a => {
-            if (!a) return false;
-            const comp = (typeof a === 'string' ? a : (a.component || a.item || a.label || '')).toLowerCase();
-            if (att.id === 'suppressor' && (comp === 'suppressor' || comp.includes('supp') || comp.includes('silenc'))) return true;
-            if (att.id === 'flashlight' && (comp === 'flashlight' || comp.includes('flsh') || comp.includes('flash') || comp.includes('lintern'))) return true;
-            if (att.id === 'scope' && (comp === 'scope' || comp.includes('scope') || comp.includes('mira'))) return true;
-            if (att.id === 'clip' && (comp === 'clip' || comp.includes('clip') || comp.includes('mag') || comp.includes('cargad'))) return true;
-            return false;
-        });
-        const row = document.createElement("div");
-        row.className = "attachment-row";
-        row.innerHTML = `
-            <span><i class="fa-solid ${att.icon}"></i> ${att.label}</span>
-            <button class="action-btn ${hasAttach ? 'drop-btn' : 'give-btn'}" style="padding: 6px 12px; font-size: 12px;">
-                ${hasAttach ? 'Desacoplar' : 'Acoplar'}
-            </button>
-        `;
-        row.querySelector("button").addEventListener("click", (e) => {
-            e.stopPropagation();
-            postNUI("modifyWeapon", {
-                weaponName: weapon.name,
-                componentName: att.id,
-                install: !hasAttach,
-                slot: weapon.slot
+        availableAttach.forEach(att => {
+            const attachments = Array.isArray(weapon.info?.attachments) ? weapon.info.attachments : Object.values(weapon.info?.attachments || {});
+            const hasAttach = attachments.some(a => {
+                if (!a) return false;
+                const rawComp = typeof a === 'string' ? a : (a.component || a.attachment || a.item || a.name || a.id || a.label || '');
+                const comp = String(rawComp || '').toLowerCase();
+                if (att.id === 'suppressor' && (comp === 'suppressor' || comp.includes('supp') || comp.includes('silenc'))) return true;
+                if (att.id === 'flashlight' && (comp === 'flashlight' || comp.includes('flsh') || comp.includes('flash') || comp.includes('lintern'))) return true;
+                if (att.id === 'scope' && (comp === 'scope' || comp.includes('scope') || comp.includes('mira'))) return true;
+                if (att.id === 'clip' && (comp === 'clip' || comp.includes('clip') || comp.includes('mag') || comp.includes('cargad') || comp.includes('extended'))) return true;
+                return false;
             });
-            closeModal("weapon-modal");
+            const row = document.createElement("div");
+            row.className = "attachment-row";
+            row.innerHTML = `
+                <span><i class="fa-solid ${att.icon}"></i> ${att.label}</span>
+                <button class="action-btn ${hasAttach ? 'drop-btn' : 'give-btn'}" style="padding: 6px 12px; font-size: 12px;">
+                    ${hasAttach ? 'Desacoplar' : 'Acoplar'}
+                </button>
+            `;
+            row.querySelector("button").addEventListener("click", (e) => {
+                e.stopPropagation();
+                postNUI("modifyWeapon", {
+                    weaponName: weapon.name,
+                    componentName: att.id,
+                    install: !hasAttach,
+                    slot: weapon.slot
+                });
+                closeModal("weapon-modal");
+            });
+            attachList.appendChild(row);
         });
-        attachList.appendChild(row);
-    });
+    }
 
     openModal("weapon-modal");
 }
+
 
 function openModal(id) {
     const modal = document.getElementById(id);
@@ -786,49 +832,86 @@ function setupModalHandlers() {
         }
     });
 
+    const ctxMenuElement = document.getElementById("item-context-menu");
+    if (ctxMenuElement) {
+        ctxMenuElement.addEventListener("mousedown", (e) => e.stopPropagation());
+        ctxMenuElement.addEventListener("mouseup", (e) => e.stopPropagation());
+    }
+
     document.addEventListener("click", () => {
         const ctxMenu = document.getElementById("item-context-menu");
         if (ctxMenu) ctxMenu.classList.add("hidden");
     });
 
-    document.getElementById("ctx-use").addEventListener("click", () => {
-        if (selectedSlot) {
-            if (selectedSlot.invType === "other" && otherData.invType === "shop") {
-                const amount = Number(document.getElementById("item-amount").value) || 1;
-                postNUI("BuyItem", { shop: otherData.id, item: selectedSlot.item, amount: amount });
-            } else if (selectedSlot.invType === "player") {
-                useItem(selectedSlot.item);
+    const ctxUse = document.getElementById("ctx-use");
+    if (ctxUse) {
+        ctxUse.addEventListener("click", (e) => {
+            e.stopPropagation();
+            const ctxMenu = document.getElementById("item-context-menu");
+            if (ctxMenu) ctxMenu.classList.add("hidden");
+            if (selectedSlot) {
+                if (selectedSlot.invType === "other" && otherData.invType === "shop") {
+                    const amount = Number(document.getElementById("item-amount").value) || 1;
+                    postNUI("BuyItem", { shop: otherData.id, item: selectedSlot.item, amount: amount });
+                } else if (selectedSlot.invType === "player" || selectedSlot.invType === "hotbar") {
+                    useItem(selectedSlot.item);
+                }
             }
-        }
-    });
+        });
+    }
 
-    document.getElementById("ctx-give").addEventListener("click", (e) => {
-        e.stopPropagation();
-        if (selectedSlot && selectedSlot.invType === "player") {
-            openModal("give-modal");
-        }
-    });
+    const ctxGive = document.getElementById("ctx-give");
+    if (ctxGive) {
+        ctxGive.addEventListener("click", (e) => {
+            e.stopPropagation();
+            const ctxMenu = document.getElementById("item-context-menu");
+            if (ctxMenu) ctxMenu.classList.add("hidden");
+            if (selectedSlot && (selectedSlot.invType === "player" || selectedSlot.invType === "hotbar")) {
+                openModal("give-modal");
+            }
+        });
+    }
 
-    document.getElementById("ctx-split").addEventListener("click", () => {
-        if (selectedSlot && selectedSlot.invType === "player") {
-            const inputVal = Number(document.getElementById("item-amount").value);
-            const amount = (inputVal > 0) ? inputVal : Math.max(1, Math.floor(selectedSlot.item.amount / 2));
-            postNUI("SplitItem", { item: selectedSlot.item, amount: amount });
-        }
-    });
+    const ctxSplit = document.getElementById("ctx-split");
+    if (ctxSplit) {
+        ctxSplit.addEventListener("click", (e) => {
+            e.stopPropagation();
+            const ctxMenu = document.getElementById("item-context-menu");
+            if (ctxMenu) ctxMenu.classList.add("hidden");
+            if (selectedSlot && (selectedSlot.invType === "player" || selectedSlot.invType === "hotbar" || selectedSlot.invType === "other")) {
+                const inputVal = Number(document.getElementById("item-amount").value);
+                const amount = (inputVal > 0) ? inputVal : Math.max(1, Math.floor(selectedSlot.item.amount / 2));
+                postNUI("SplitItem", { item: selectedSlot.item, amount: amount });
+                selectedSlot = null;
+            }
+        });
+    }
 
-    document.getElementById("ctx-drop").addEventListener("click", () => {
-        if (selectedSlot && selectedSlot.invType === "player") {
-            const amount = Number(document.getElementById("item-amount").value) || selectedSlot.item.amount;
-            postNUI("DropItem", { item: selectedSlot.item, amount: amount });
-        }
-    });
+    const ctxDrop = document.getElementById("ctx-drop");
+    if (ctxDrop) {
+        ctxDrop.addEventListener("click", (e) => {
+            e.stopPropagation();
+            const ctxMenu = document.getElementById("item-context-menu");
+            if (ctxMenu) ctxMenu.classList.add("hidden");
+            if (selectedSlot && (selectedSlot.invType === "player" || selectedSlot.invType === "hotbar")) {
+                const amount = Number(document.getElementById("item-amount").value) || selectedSlot.item.amount;
+                postNUI("DropItem", { item: selectedSlot.item, amount: amount });
+                selectedSlot = null;
+            }
+        });
+    }
 
-    document.getElementById("ctx-inspect").addEventListener("click", () => {
-        if (selectedSlot && selectedSlot.item) {
-            openWeaponInspection(selectedSlot.item);
-        }
-    });
+    const ctxInspect = document.getElementById("ctx-inspect");
+    if (ctxInspect) {
+        ctxInspect.addEventListener("click", (e) => {
+            e.stopPropagation();
+            const ctxMenu = document.getElementById("item-context-menu");
+            if (ctxMenu) ctxMenu.classList.add("hidden");
+            if (selectedSlot && selectedSlot.item) {
+                openWeaponInspection(selectedSlot.item);
+            }
+        });
+    }
 }
 
 /* CONTEXT MENU */
@@ -837,16 +920,38 @@ function showContextMenu(x, y, item, invType) {
     if (!ctxMenu) return;
 
     const inspectBtn = document.getElementById("ctx-inspect");
-    if (item.type === "weapon" || (item.name && item.name.toLowerCase().startsWith("weapon_"))) {
-        inspectBtn.classList.remove("hidden");
-    } else {
-        inspectBtn.classList.add("hidden");
+    if (inspectBtn) {
+        if (item.type === "weapon" || String(item.name || '').toLowerCase().startsWith("weapon_")) {
+            inspectBtn.classList.remove("hidden");
+        } else {
+            inspectBtn.classList.add("hidden");
+        }
     }
 
-    ctxMenu.style.left = `${x}px`;
-    ctxMenu.style.top = `${y}px`;
+    const giveBtn = document.getElementById("ctx-give");
+    const useBtn = document.getElementById("ctx-use");
+    const dropBtn = document.getElementById("ctx-drop");
+    if (invType === "player" || invType === "hotbar") {
+        if (giveBtn) giveBtn.classList.remove("hidden");
+        if (useBtn) useBtn.classList.remove("hidden");
+        if (dropBtn) dropBtn.classList.remove("hidden");
+    } else {
+        if (giveBtn) giveBtn.classList.add("hidden");
+        if (useBtn && otherData.invType !== "shop") useBtn.classList.add("hidden");
+        if (dropBtn) dropBtn.classList.add("hidden");
+    }
+
     ctxMenu.classList.remove("hidden");
+    const rect = ctxMenu.getBoundingClientRect();
+    let left = x;
+    let top = y;
+    if (left + rect.width > window.innerWidth) left = window.innerWidth - rect.width - 10;
+    if (top + rect.height > window.innerHeight) top = window.innerHeight - rect.height - 10;
+
+    ctxMenu.style.left = `${left}px`;
+    ctxMenu.style.top = `${top}px`;
 }
+
 
 /* ADMIN PANEL */
 function populateAdminUI(players, items) {
@@ -900,7 +1005,7 @@ function setupAdminPanel() {
         searchInput.addEventListener("input", (e) => {
             const q = e.target.value.toLowerCase();
             if (!window._allAdminItems) return;
-            const filtered = window._allAdminItems.filter(i => i && ((i.name && i.name.toLowerCase().includes(q)) || (i.label && i.label.toLowerCase().includes(q))));
+            const filtered = window._allAdminItems.filter(i => i && (String(i.name || '').toLowerCase().includes(q) || String(i.label || '').toLowerCase().includes(q)));
             renderAdminItemsList(filtered);
         });
     }
