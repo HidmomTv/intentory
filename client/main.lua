@@ -285,13 +285,13 @@ exports('HasItem', function(items, amount)
     if type(items) == "table" then
         for _, item in pairs(items) do
             for _, pItem in pairs(PlayerData.items) do
-                if pItem and pItem.name == item and pItem.amount >= count then return true end
+                if pItem and pItem.name and pItem.name:lower() == tostring(item):lower() and pItem.amount >= count then return true end
             end
         end
         return false
     else
         for _, pItem in pairs(PlayerData.items) do
-            if pItem and pItem.name == items and pItem.amount >= count then return true end
+            if pItem and pItem.name and pItem.name:lower() == tostring(items):lower() and pItem.amount >= count then return true end
         end
         return false
     end

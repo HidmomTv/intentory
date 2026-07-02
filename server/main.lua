@@ -232,8 +232,23 @@ local function AddItem(source, item, amount, slot, info)
 
     local items = Player.PlayerData.items
 
-    -- Si no nos dieron slot, intentamos apilar en uno existente si el objeto no es único ni arma
-    if not slot then
+    -- Si nos dan un slot que ya está ocupado por otro ítem o no es apilable, buscamos un slot libre o apilamos
+    if slot and items[slot] then
+        if items[slot].name:lower() == item:lower() and not sharedItem.unique and sharedItem.type ~= 'weapon' then
+            items[slot].amount = items[slot].amount + amount
+            Player.Functions.SetPlayerData("items", items)
+            TriggerClientEvent('inventory:client:ItemBox', source, sharedItem, 'add')
+            TriggerClientEvent('qb-inventory:client:refreshUI', source, items)
+            return true
+        else
+            -- Slot ocupado por un objeto diferente, buscar slot libre para no borrar el ítem existente
+            slot = GetFirstFreeSlot(items)
+            if not slot then
+                TriggerClientEvent('QBCore:Notify', source, "Inventario lleno", "error")
+                return false
+            end
+        end
+    elseif not slot then
         if not sharedItem.unique and sharedItem.type ~= 'weapon' then
             for s, itemData in pairs(items) do
                 if itemData and itemData.name:lower() == item:lower() then
@@ -253,7 +268,7 @@ local function AddItem(source, item, amount, slot, info)
         end
     end
 
-    -- Si el slot pedido ya está ocupado y es el mismo objeto apilable
+    -- Si el slot pedido ya está ocupado y es el mismo objeto apilable (por si acaso)
     if items[slot] and items[slot].name:lower() == item:lower() and not sharedItem.unique and sharedItem.type ~= 'weapon' then
         items[slot].amount = items[slot].amount + amount
     else
@@ -495,13 +510,16 @@ exports('ClearInventory', function(source, filterItems)
     if filterItems then
         if type(filterItems) == 'string' then
             for slot, item in pairs(Player.PlayerData.items) do
-                if item.name:lower() == filterItems:lower() then savedItemData[slot] = item end
+                if item and item.name:lower() == filterItems:lower() then savedItemData[slot] = item end
             end
         elseif type(filterItems) == 'table' then
             local filterSet = {}
-            for _, f in ipairs(filterItems) do filterSet[f:lower()] = true end
+            for k, v in pairs(filterItems) do
+                if type(v) == 'string' then filterSet[v:lower()] = true
+                elseif type(k) == 'string' and v then filterSet[k:lower()] = true end
+            end
             for slot, item in pairs(Player.PlayerData.items) do
-                if filterSet[item.name:lower()] then savedItemData[slot] = item end
+                if item and filterSet[item.name:lower()] then savedItemData[slot] = item end
             end
         end
     end
@@ -547,13 +565,57 @@ exports('OpenShop', function(source, shopId)
     TriggerClientEvent('qb-inventory:client:openSecondary', source, shop.name or shop.label or "Tienda", 1000.0, shopId, "shop", shop.items)
 end)
 
+local function OpenContainerNormalizedHelper(source, invType, invId, other)
+    local Player = QBCore.Functions.GetPlayer(source)
+    if not Player then return end
+
+    if invType == "stash" then
+        local stashId = tostring(invId)
+        local data = type(other) == "table" and other or {}
+        local maxW = tonumber(data.maxweight or data.maxWeight) or 100000
+        if maxW > 5000 then maxW = maxW / 1000.0 end
+        if maxW < 10 then maxW = 100.0 end
+
+        OpenedContainers[source] = { type = "stash", id = stashId }
+        local items = LoadContainerItems("stash", stashId)
+        TriggerClientEvent('qb-inventory:client:openSecondary', source, "Armario: " .. stashId, maxW, stashId, "stash", EnrichItems(items))
+    elseif invType == "trunk" then
+        OpenedContainers[source] = { type = "trunk", id = invId }
+        local items = LoadContainerItems("trunk", invId)
+        TriggerClientEvent('qb-inventory:client:openSecondary', source, "Maletero: " .. invId, 150.0, invId, "trunk", EnrichItems(items))
+    elseif invType == "glovebox" then
+        OpenedContainers[source] = { type = "glovebox", id = invId }
+        local items = LoadContainerItems("glovebox", invId)
+        TriggerClientEvent('qb-inventory:client:openSecondary', source, "Guantera: " .. invId, 15.0, invId, "glovebox", EnrichItems(items))
+    elseif invType == "shop" then
+        OpenedContainers[source] = { type = "shop", id = invId }
+        local shopItems = Shops[invId] and Shops[invId].items or (RegisteredShops and RegisteredShops[invId] and RegisteredShops[invId].items) or (other and other.items or {})
+        TriggerClientEvent('qb-inventory:client:openSecondary', source, Shops[invId] and Shops[invId].name or (RegisteredShops and RegisteredShops[invId] and RegisteredShops[invId].label) or "Tienda", 1000.0, invId, "shop", shopItems)
+    else
+        -- Llamada estándar QBCore con 2 o 3 argumentos: OpenInventory(src, 'nombre_contenedor', { maxweight = ..., slots = ... })
+        local stashId = tostring(invType)
+        local data = type(invId) == "table" and invId or (type(other) == "table" and other or {})
+        local maxW = tonumber(data.maxweight or data.maxWeight) or 100000
+        if maxW > 5000 then maxW = maxW / 1000.0 end
+        if maxW < 10 then maxW = 100.0 end
+
+        OpenedContainers[source] = { type = "stash", id = stashId }
+        local items = LoadContainerItems("stash", stashId)
+        TriggerClientEvent('qb-inventory:client:openSecondary', source, "Armario: " .. stashId, maxW, stashId, "stash", EnrichItems(items))
+    end
+end
+
 exports('OpenInventory', function(source, invType, invId, other)
-    OpenedContainers[source] = { type = invType, id = invId }
-    TriggerEvent('inventory:server:OpenInventory', invType, invId, other)
+    OpenContainerNormalizedHelper(source, invType, invId, other)
 end)
 exports('OpenInventoryById', function(source, invId)
-    OpenedContainers[source] = { type = "stash", id = invId }
-    TriggerEvent('inventory:server:OpenInventory', "stash", invId)
+    local targetId = tonumber(invId)
+    if not targetId then return end
+    local Target = QBCore.Functions.GetPlayer(targetId)
+    if Target then
+        OpenedContainers[source] = { type = "otherplayer", id = targetId }
+        TriggerClientEvent('qb-inventory:client:openSecondary', source, "Cacheo: " .. GetPlayerName(targetId), 120.0, targetId, "otherplayer", EnrichItems(Target.PlayerData.items))
+    end
 end)
 exports('OpenStash', function(source, stashId)
     OpenedContainers[source] = { type = "stash", id = stashId }
@@ -692,26 +754,8 @@ local function LoadContainerItems(cType, id)
     return {}
 end
 
--- EVENTOS NATIvOS DE APERTURA (tiendas, stashes, maleteros, guanteras)
 RegisterNetEvent('inventory:server:OpenInventory', function(type, id, other)
-    local src = source
-    local Player = QBCore.Functions.GetPlayer(src)
-    if not Player then return end
-
-    OpenedContainers[src] = { type = type, id = id }
-    if type == "stash" then
-        local items = LoadContainerItems("stash", id)
-        TriggerClientEvent('qb-inventory:client:openSecondary', src, "Armario: " .. id, 100.0, id, "stash", EnrichItems(items))
-    elseif type == "trunk" then
-        local items = LoadContainerItems("trunk", id)
-        TriggerClientEvent('qb-inventory:client:openSecondary', src, "Maletero: " .. id, 150.0, id, "trunk", EnrichItems(items))
-    elseif type == "glovebox" then
-        local items = LoadContainerItems("glovebox", id)
-        TriggerClientEvent('qb-inventory:client:openSecondary', src, "Guantera: " .. id, 15.0, id, "glovebox", EnrichItems(items))
-    elseif type == "shop" then
-        local shopItems = Shops[id] and Shops[id].items or (RegisteredShops and RegisteredShops[id] and RegisteredShops[id].items) or (other and other.items or {})
-        TriggerClientEvent('qb-inventory:client:openSecondary', src, Shops[id] and Shops[id].name or (RegisteredShops and RegisteredShops[id] and RegisteredShops[id].label) or "Tienda", 1000.0, id, "shop", shopItems)
-    end
+    OpenContainerNormalizedHelper(source, type, id, other)
 end)
 
 -- CALLBACKS PARA OBTENER ITEMS DE CONTENEDOR (solicitados por el cliente)
