@@ -1,21 +1,29 @@
--- client/weapons.lua
+local QBCore = exports['qb-core']:GetCoreObject()
+
 RegisterNUICallback('modifyWeapon', function(data, cb)
     local ped = PlayerPedId()
-    local weaponHash = GetHashKey(data.weaponName)
-    local componentHash = GetHashKey(data.componentName)
+    local weaponHash = tonumber(data.weaponName) or GetHashKey(data.weaponName)
+    local componentHash = tonumber(data.componentHash) or tonumber(data.componentName)
+    if not componentHash and data.componentName then
+        componentHash = GetHashKey(tostring(data.componentName))
+    end
     
     if HasPedGotWeapon(ped, weaponHash, false) then
         if data.install then
             GiveWeaponComponentToPed(ped, weaponHash, componentHash)
-            QBCore.Functions.Notify("Accesorio acoplado al arma", "success")
+            QBCore.Functions.Notify("Accesorio acoplado al arma en mano", "success")
         else
             RemoveWeaponComponentFromPed(ped, weaponHash, componentHash)
-            QBCore.Functions.Notify("Accesorio desacoplado del arma", "info")
+            QBCore.Functions.Notify("Accesorio desacoplado del arma en mano", "primary")
         end
-        TriggerServerEvent('qb-inventory:server:modifyWeaponAttachment', data.slot, data.componentName, data.install)
-        cb({ success = true })
     else
-        QBCore.Functions.Notify("Debes tener el arma en mano para modificarla", "error")
-        cb({ success = false, error = "No tienes el arma equipada" })
+        if data.install then
+            QBCore.Functions.Notify("Accesorio acoplado al arma del inventario", "success")
+        else
+            QBCore.Functions.Notify("Accesorio desacoplado del arma del inventario", "primary")
+        end
     end
+
+    TriggerServerEvent('qb-inventory:server:modifyWeaponAttachment', data.slot, componentHash, data.install)
+    cb({ success = true })
 end)

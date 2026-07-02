@@ -23,6 +23,93 @@ local function CopyTable(orig)
     return copy
 end
 
+local function CompareHashes(h1, h2)
+    if not h1 or not h2 then return false end
+    if h1 == h2 or tostring(h1) == tostring(h2) then return true end
+    local n1 = tonumber(h1)
+    local n2 = tonumber(h2)
+    if not n1 and type(h1) == 'string' then n1 = GetHashKey(h1) end
+    if not n2 and type(h2) == 'string' then n2 = GetHashKey(h2) end
+    if n1 and n2 then
+        if n1 == n2 then return true end
+        if (n1 & 0xFFFFFFFF) == (n2 & 0xFFFFFFFF) then return true end
+    end
+    return false
+end
+
+local function ResolveAttachmentLabel(att)
+    if not att then return att end
+    if type(att) == 'table' and att.label and att.label ~= 'Accesorio Táctico' and att.label ~= 'Componente Táctico' then
+        return att
+    end
+    local attComp = type(att) == 'table' and (att.component or att.id or att.hash) or att
+    local itemName = type(att) == 'table' and (att.item or att.attachment) or nil
+
+    if not itemName and attComp then
+        local ok, allAtts = pcall(function()
+            return exports['qb-weapons']:getConfigWeaponAttachments()
+        end)
+        if ok and allAtts then
+            for category, weaponsMap in pairs(allAtts) do
+                if type(weaponsMap) == 'table' then
+                    for wName, hashVal in pairs(weaponsMap) do
+                        if CompareHashes(hashVal, attComp) then
+                            if QBCore.Shared.Items[category] then
+                                itemName = category
+                            elseif QBCore.Shared.Items[category .. "_attachment"] then
+                                itemName = category .. "_attachment"
+                            end
+                            break
+                        end
+                    end
+                end
+                if itemName then break end
+            end
+        end
+    end
+
+    if not itemName and attComp then
+        local numComp = tonumber(attComp) or 0
+        local unsignedComp = numComp & 0xFFFFFFFF
+        local knownMap = {
+            [1709866683] = 'suppressor_attachment',
+            [316253668] = 'flashlight_attachment',
+            [899381934] = 'flashlight_attachment',
+            [(0xFFFFFFFF & -2218447396)] = 'clip_attachment',
+            [1593441988] = 'suppressor_attachment'
+        }
+        if knownMap[unsignedComp] and QBCore.Shared.Items[knownMap[unsignedComp]] then
+            itemName = knownMap[unsignedComp]
+        end
+    end
+
+    local label = nil
+    if itemName and QBCore.Shared.Items[itemName] then
+        label = QBCore.Shared.Items[itemName].label
+    elseif itemName then
+        if itemName:find('camo') then label = 'Camuflaje de Arma'
+        elseif itemName:find('supp') then label = 'Silenciador Táctico'
+        elseif itemName:find('flsh') then label = 'Linterna Táctica'
+        elseif itemName:find('clip') or itemName:find('drum') then label = 'Cargador Ampliado'
+        elseif itemName:find('scope') then label = 'Mira Telescópica'
+        elseif itemName:find('grip') then label = 'Empuñadura Táctica'
+        elseif itemName:find('muzzle') or itemName:find('comp') then label = 'Compensador Táctico'
+        elseif itemName:find('barrel') then label = 'Cañón Pesado'
+        elseif itemName:find('finish') or itemName:find('luxe') then label = 'Acabado de Lujo'
+        end
+    end
+
+    label = label or 'Modificación de Arma'
+
+    if type(att) == 'table' then
+        att.label = label
+        if itemName then att.item = itemName end
+        return att
+    else
+        return { component = attComp, item = itemName, label = label }
+    end
+end
+
 local function EnrichItems(items)
     if not items then return {} end
     local enriched = {}
@@ -37,6 +124,19 @@ local function EnrichItems(items)
             item.label = item.label or (sItem and sItem.label) or item.name
             item.image = item.image or (sItem and sItem.image) or (item.name .. '.png')
             item.description = item.description or (sItem and sItem.description) or ''
+            if sItem and sItem.type == 'weapon' then
+                item.info = item.info or {}
+                if item.info.quality == nil then
+                    item.info.quality = 100
+                end
+            end
+            if item.info and type(item.info) == 'table' and item.info.attachments and type(item.info.attachments) == 'table' then
+                local newAtts = {}
+                for idx, att in pairs(item.info.attachments) do
+                    newAtts[idx] = ResolveAttachmentLabel(att)
+                end
+                item.info.attachments = newAtts
+            end
             enriched[k] = item
         end
     end
@@ -158,6 +258,13 @@ local function AddItem(source, item, amount, slot, info)
         items[slot].amount = items[slot].amount + amount
     else
         -- Nuevo objeto en el slot
+        if sharedItem.type == 'weapon' then
+            info = info or {}
+            if info.quality == nil then
+                info.quality = 100
+            end
+            info.attachments = info.attachments or {}
+        end
         items[slot] = {
             name = sharedItem.name,
             amount = amount,
@@ -526,7 +633,12 @@ end
 QBCore.Functions.CreateCallback('qb-inventory:server:getPlayerInventory', function(source, cb)
     local Player = QBCore.Functions.GetPlayer(source)
     if not Player then cb({}, false) return end
-    cb(EnrichItems(Player.PlayerData.items), IsAdmin(source))
+    local ok, enriched = pcall(EnrichItems, Player.PlayerData.items)
+    if not ok then
+        print("^1[qb-inventory] Error en EnrichItems: " .. tostring(enriched) .. "^7")
+        enriched = Player.PlayerData.items or {}
+    end
+    cb(enriched, IsAdmin(source))
 end)
 
 QBCore.Functions.CreateCallback('qb-inventory:server:GetAdminData', function(source, cb)
@@ -645,7 +757,9 @@ local function HandleItemUse(src, itemSlot)
     if not itemData then return end
 
     if itemData.type == 'weapon' then
-        TriggerClientEvent('qb-weapons:client:UseWeapon', src, itemData, itemData.info.quality and itemData.info.quality > 0)
+        local quality = tonumber(itemData.info and itemData.info.quality)
+        if not quality then quality = 100 end
+        TriggerClientEvent('qb-weapons:client:UseWeapon', src, itemData, quality > 0)
     else
         UseItem(itemData.name, src, itemData)
     end
@@ -1237,10 +1351,13 @@ RegisterNetEvent('qb-inventory:server:modifyWeaponAttachment', function(slot, co
     itemData.info = itemData.info or {}
     itemData.info.attachments = itemData.info.attachments or {}
 
+    local giveBackItem = nil
+
     if install then
         local found = false
         for _, att in pairs(itemData.info.attachments) do
-            if (type(att) == 'string' and att == componentHash) or (type(att) == 'table' and att.component == componentHash) then
+            local attComp = type(att) == 'table' and (att.component or att.id or att.hash) or att
+            if CompareHashes(attComp, componentHash) then
                 found = true
                 break
             end
@@ -1249,16 +1366,81 @@ RegisterNetEvent('qb-inventory:server:modifyWeaponAttachment', function(slot, co
             table.insert(itemData.info.attachments, { component = componentHash })
         end
     else
-        for i = #itemData.info.attachments, 1, -1 do
-            local att = itemData.info.attachments[i]
-            if (type(att) == 'string' and att == componentHash) or (type(att) == 'table' and att.component == componentHash) then
-                table.remove(itemData.info.attachments, i)
+        local newAttachments = {}
+        for _, att in pairs(itemData.info.attachments) do
+            local attComp = type(att) == 'table' and (att.component or att.id or att.hash) or att
+            if CompareHashes(attComp, componentHash) then
+                if not giveBackItem then
+                    local itemName = (type(att) == 'table' and (att.item or att.attachment))
+                    if not itemName then
+                        local ok, allAtts = pcall(function()
+                            return exports['qb-weapons']:getConfigWeaponAttachments()
+                        end)
+                        if ok and allAtts then
+                            for category, weaponsMap in pairs(allAtts) do
+                                if type(weaponsMap) == 'table' then
+                                    for wName, hashVal in pairs(weaponsMap) do
+                                        if CompareHashes(hashVal, attComp) then
+                                            if QBCore.Shared.Items[category] then
+                                                itemName = category
+                                            elseif QBCore.Shared.Items[category .. "_attachment"] then
+                                                itemName = category .. "_attachment"
+                                            end
+                                            break
+                                        end
+                                    end
+                                end
+                                if itemName then break end
+                            end
+                        end
+                    end
+
+                    if not itemName then
+                        local numComp = tonumber(attComp) or 0
+                        local unsignedComp = numComp & 0xFFFFFFFF
+                        local knownMap = {
+                            [1709866683] = 'suppressor_attachment',
+                            [316253668] = 'flashlight_attachment',
+                            [899381934] = 'flashlight_attachment',
+                            [(0xFFFFFFFF & -2218447396)] = 'clip_attachment',
+                            [1593441988] = 'suppressor_attachment'
+                        }
+                        if knownMap[unsignedComp] and QBCore.Shared.Items[knownMap[unsignedComp]] then
+                            itemName = knownMap[unsignedComp]
+                        end
+                    end
+
+                    if not itemName then
+                        itemName = 'suppressor_attachment'
+                    end
+
+                    giveBackItem = itemName
+                end
+            else
+                table.insert(newAttachments, att)
             end
         end
+        itemData.info.attachments = newAttachments
     end
 
-    Player.Functions.SetPlayerData("items", items)
-    SyncPlayerUI(src)
+    local slot = itemData.slot
+    local weaponName = itemData.name
+    local info = itemData.info
+
+    Player.Functions.RemoveItem(weaponName, 1, slot)
+    Player.Functions.AddItem(weaponName, 1, slot, info)
+
+    if giveBackItem and QBCore.Shared.Items[giveBackItem] then
+        Player.Functions.AddItem(giveBackItem, 1, false, false)
+        TriggerClientEvent('qb-inventory:client:ItemBox', src, QBCore.Shared.Items[giveBackItem], 'add')
+    end
+
+    if SyncPlayerUI then
+        SyncPlayerUI(src)
+    end
+
+    local updatedWeapon = Player.PlayerData.items[slot]
+    TriggerClientEvent('qb-weapons:client:SetCurrentWeapon', src, updatedWeapon or {}, true)
 end)
 
 RegisterNetEvent('qb-inventory:server:AdminGiveItem', function(targetId, itemName, amount)

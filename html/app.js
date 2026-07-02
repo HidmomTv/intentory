@@ -716,53 +716,88 @@ function openWeaponInspection(weapon) {
 
     const dmgEl = document.getElementById("weapon-damage-stat");
     if (dmgEl) {
-        const quality = (weapon.info && weapon.info.quality !== undefined) ? `${Math.round(weapon.info.quality)}% Durabilidad` : "100% Óptimo";
+        const quality = (weapon.info && weapon.info.quality !== undefined) ? `${Math.round(weapon.info.quality)}% Óptimo` : "100% Óptimo";
         dmgEl.innerText = quality;
     }
+
+    const serEl = document.getElementById("weapon-serial-stat");
+    if (serEl) serEl.innerText = weapon.info?.serie || "N/A - ILEGAL";
 
     const attachList = document.getElementById("attachments-list");
     if (attachList) {
         attachList.innerHTML = "";
+        const attachments = Array.isArray(weapon.info?.attachments) ? weapon.info.attachments : Object.values(weapon.info?.attachments || {});
 
-        const availableAttach = [
-            { id: "suppressor", label: "Silenciador", icon: "fa-volume-xmark" },
-            { id: "flashlight", label: "Linterna Táctica", icon: "fa-lightbulb" },
-            { id: "scope", label: "Mira Telescópica", icon: "fa-crosshairs" },
-            { id: "clip", label: "Cargador Ampliado", icon: "fa-bars-staggered" }
-        ];
+        if (attachments.length > 0) {
+            const header = document.createElement("div");
+            header.style.cssText = "font-size:12px; color:#00ffa6; margin-bottom:8px; font-weight:600;";
+            header.innerHTML = '<i class="fa-solid fa-check-double"></i> INSTALADOS ACTUALMENTE:';
+            attachList.appendChild(header);
 
-        availableAttach.forEach(att => {
-            const attachments = Array.isArray(weapon.info?.attachments) ? weapon.info.attachments : Object.values(weapon.info?.attachments || {});
-            const hasAttach = attachments.some(a => {
-                if (!a) return false;
-                const rawComp = typeof a === 'string' ? a : (a.component || a.attachment || a.item || a.name || a.id || a.label || '');
-                const comp = String(rawComp || '').toLowerCase();
-                if (att.id === 'suppressor' && (comp === 'suppressor' || comp.includes('supp') || comp.includes('silenc'))) return true;
-                if (att.id === 'flashlight' && (comp === 'flashlight' || comp.includes('flsh') || comp.includes('flash') || comp.includes('lintern'))) return true;
-                if (att.id === 'scope' && (comp === 'scope' || comp.includes('scope') || comp.includes('mira'))) return true;
-                if (att.id === 'clip' && (comp === 'clip' || comp.includes('clip') || comp.includes('mag') || comp.includes('cargad') || comp.includes('extended'))) return true;
-                return false;
-            });
-            const row = document.createElement("div");
-            row.className = "attachment-row";
-            row.innerHTML = `
-                <span><i class="fa-solid ${att.icon}"></i> ${att.label}</span>
-                <button class="action-btn ${hasAttach ? 'drop-btn' : 'give-btn'}" style="padding: 6px 12px; font-size: 12px;">
-                    ${hasAttach ? 'Desacoplar' : 'Acoplar'}
-                </button>
-            `;
-            row.querySelector("button").addEventListener("click", (e) => {
-                e.stopPropagation();
-                postNUI("modifyWeapon", {
-                    weaponName: weapon.name,
-                    componentName: att.id,
-                    install: !hasAttach,
-                    slot: weapon.slot
+            attachments.forEach(att => {
+                if (!att) return;
+                const compVal = typeof att === 'object' ? (att.component || att.id || att.name) : att;
+                let compLabel = (typeof att === 'object' && att.label && att.label !== 'Accesorio Táctico' && att.label !== 'Componente Táctico') ? att.label : null;
+
+                if (!compLabel) {
+                    const numVal = Number(compVal);
+                    const knownHashes = {
+                        1709866683: 'Silenciador Táctico',
+                        316253668: 'Linterna Táctica',
+                        899381934: 'Linterna Táctica',
+                        [-2218447396]: 'Cargador Ampliado',
+                        [1593441988]: 'Silenciador Táctico'
+                    };
+                    if (knownHashes[numVal]) {
+                        compLabel = knownHashes[numVal];
+                    } else {
+                        const strVal = String((typeof att === 'object' && att.item) || compVal || '').toLowerCase();
+                        if (strVal.includes('camo')) compLabel = 'Camuflaje de Arma';
+                        else if (strVal.includes('tint') || strVal.includes('luxe') || strVal.includes('finish')) compLabel = 'Acabado de Lujo';
+                        else if (strVal.includes('supp')) compLabel = 'Silenciador Táctico';
+                        else if (strVal.includes('flsh')) compLabel = 'Linterna Táctica';
+                        else if (strVal.includes('clip') || strVal.includes('mag') || strVal.includes('drum')) compLabel = 'Cargador Ampliado';
+                        else if (strVal.includes('scope') || strVal.includes('sight') || strVal.includes('holo')) compLabel = 'Mira Telescópica';
+                        else if (strVal.includes('grip')) compLabel = 'Empuñadura Táctica';
+                        else if (strVal.includes('muzzle') || strVal.includes('comp') || strVal.includes('brake')) compLabel = 'Compensador Táctico';
+                        else if (strVal.includes('barrel')) compLabel = 'Cañón Pesado';
+                        else compLabel = 'Modificación Táctica';
+                    }
+                }
+
+                const row = document.createElement("div");
+                row.className = "attachment-row";
+                row.style.cssText = "border: 1px solid rgba(0,255,166,0.3); background: rgba(0,255,166,0.05); margin-bottom: 6px;";
+                row.innerHTML = `
+                    <span style="color:#fff;"><i class="fa-solid fa-microchip" style="color:#00ffa6;"></i> ${compLabel}</span>
+                    <button class="action-btn drop-btn" style="padding: 6px 12px; font-size: 11px; background: #ff3b3b; color: #fff;">
+                        Desacoplar
+                    </button>
+                `;
+                row.querySelector("button").addEventListener("click", (e) => {
+                    e.stopPropagation();
+                    postNUI("modifyWeapon", {
+                        weaponName: weapon.name,
+                        componentName: String(compVal),
+                        componentHash: compVal,
+                        install: false,
+                        slot: weapon.slot
+                    });
+                    closeModal("weapon-modal");
                 });
-                closeModal("weapon-modal");
+                attachList.appendChild(row);
             });
-            attachList.appendChild(row);
-        });
+        } else {
+            const noAtt = document.createElement("div");
+            noAtt.style.cssText = "font-size:12px; color:#aaa; padding:10px; text-align:center; background:rgba(255,255,255,0.03); border-radius:6px; margin-bottom:10px;";
+            noAtt.innerHTML = "No hay accesorios avanzados montados en este arma.";
+            attachList.appendChild(noAtt);
+        }
+
+        const infoBench = document.createElement("div");
+        infoBench.style.cssText = "margin-top:12px; font-size:11px; color:#00d9ff; padding:8px; background:rgba(0,217,255,0.1); border:1px dashed rgba(0,217,255,0.3); border-radius:6px;";
+        infoBench.innerHTML = '<i class="fa-solid fa-info-circle"></i> Para ensamblar accesorios o camuflajes, utiliza la <strong>Mesa de Armero</strong>.';
+        attachList.appendChild(infoBench);
     }
 
     openModal("weapon-modal");
